@@ -23,12 +23,11 @@ async function startBot(){
     const sock = makeWASocket({
         logger: pino({ level: "silent" }),
         auth: state,
-        // Konfigirasyon sa a obligatwa pou Pairing Code la ka parèt
-        browser: ["Ubuntu", "Chrome", "20.0.04"] 
+        // Chanjman isit la pou deklanche notifikasyon an
+        browser: ["Chrome (Linux)", "Chrome", "1.1.0"] 
     })
 
     // --- PAIRING CODE (CHIF YO) ---
-    // ⚠️ METE NIMERWO W LA NAN PLAS SA A (san "+")
     const phoneNumber = "50934410653" 
 
     if (!sock.authState.creds.registered) {
