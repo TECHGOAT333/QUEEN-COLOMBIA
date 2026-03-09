@@ -1,10 +1,10 @@
-const { default: makeWASocket, useMultiFileAuthState } = require("@whiskeysockets/baileys")
+const { default: makeWASocket, useMultiFileAuthState, delay } = require("@whiskeysockets/baileys")
 const fs = require("fs")
 const path = require("path")
 const pino = require("pino")
 const settings = require("./settings")
 
-// 📂 Load commands (KORIJE)
+// 📂 Chaje kòmand yo
 const commands = {}
 const commandsPath = path.resolve(__dirname, "commands")
 
@@ -23,19 +23,39 @@ async function startBot(){
     const sock = makeWASocket({
         logger: pino({ level: "silent" }),
         auth: state,
-        printQRInTerminal: true // Sa ap ede w wè QR la nan konsòl la
+        // Konfigirasyon sa a obligatwa pou Pairing Code la ka parèt
+        browser: ["Ubuntu", "Chrome", "20.0.04"] 
     })
+
+    // --- PAIRING CODE (CHIF YO) ---
+    // ⚠️ METE NIMERWO W LA NAN PLAS SA A (san "+")
+    const phoneNumber = "50934410653" 
+
+    if (!sock.authState.creds.registered) {
+        console.log("Ap prepare kòd koneksyon an...")
+        setTimeout(async () => {
+            try {
+                let code = await sock.requestPairingCode(phoneNumber)
+                code = code?.match(/.{1,4}/g)?.join("-") || code
+                console.log(`\n\n==============================`)
+                console.log(`✅ KÒD KONEKSYON OU SE: ${code}`)
+                console.log(`==============================\n\n`)
+            } catch (err) {
+                console.log("Erè nan prepare kòd la: ", err)
+            }
+        }, 3000)
+    }
+    // ------------------------------
 
     sock.ev.on("creds.update", saveCreds)
 
     sock.ev.on("connection.update", (update) => {
-        const { connection, lastDisconnect, qr } = update
-        if(qr) console.log("掃碼 QR Code: scan li pou konekte bot la")
+        const { connection } = update
         if(connection === "close") {
             console.log("Koneksyon koupe, l ap rekòmanse...")
             startBot()
         }
-        if(connection === "open") console.log("Bot konekte ✅")
+        if(connection === "open") console.log("Bot konekte ak siksè ✅")
     })
 
     sock.ev.on("messages.upsert", async ({ messages }) => {
@@ -51,12 +71,10 @@ async function startBot(){
             try {
                 await sock.sendMessage(from, { delete: m.key })
                 await sock.groupParticipantsUpdate(from, [sender], "remove")
-                await sock.sendMessage(from, { text: "🚫 AntiLink: User removed!" })
             } catch(e) { console.log("Erè Anti-Link:", e) }
             return
         }
 
-        // 🔹 Commands
         const prefix = settings.prefix || "."
         if(!text.startsWith(prefix)) return
 
@@ -68,7 +86,6 @@ async function startBot(){
                 await commands[commandName](sock, m, args)
             } catch(err) {
                 console.log("Erè kòmand:", err)
-                await sock.sendMessage(from, { text: "❌ Erè nan kòmand lan" }, { quoted: m })
             }
         }
     })
