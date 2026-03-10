@@ -10,8 +10,8 @@ const fs = require("fs")
 const path = require("path")
 const settings = require("./settings")
 
-// --- KONFIGIRASYON MOD (Public/Private) ---
-let isPublic = true; // Chanje sa pou 'false' si ou vle bot la reponn ou menm sèlman
+// --- MODE CONFIGURATION ---
+let isPublic = true; 
 
 async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState("session")
@@ -21,34 +21,38 @@ async function startBot() {
         version,
         logger: pino({ level: "silent" }),
         auth: state,
-        browser: ["Mac OS", "Chrome", "10.15.7"],
+        browser: ["QUEEN COLAMBIA", "Chrome", "1.0.0"],
         printQRInTerminal: false,
         getMessage: async (key) => { return { conversation: 'QUEEN COLAMBIA' } }
     })
 
-    // 📂 Chaje kòmand yo otomatikman
+    // 📂 Auto-load commands
     const commands = {}
     const commandsPath = path.join(__dirname, "commands")
     if (fs.existsSync(commandsPath)) {
         fs.readdirSync(commandsPath).forEach(file => {
             if (file.endsWith(".js")) {
-                const cmd = require(path.join(commandsPath, file))
-                commands[file.replace(".js", "")] = cmd
+                try {
+                    const cmd = require(path.join(commandsPath, file))
+                    commands[file.replace(".js", "")] = cmd
+                } catch (e) {
+                    console.log(`❌ Error loading ${file}:`, e.message)
+                }
             }
         })
-        console.log(`✅ ${Object.keys(commands).length} kòmand chaje!`)
+        console.log(`✅ ${Object.keys(commands).length} Commands Loaded!`)
     }
 
     // --- PAIRING CODE ---
     const phoneNumber = settings.ownerNumber.replace(/[^0-9]/g, '') 
     if (!sock.authState.creds.registered) {
-        console.log(`\n🔄 Ap prepare kòd pou: ${phoneNumber}...`)
+        console.log(`\n🔄 Generating pairing code for: ${phoneNumber}...`)
         setTimeout(async () => {
             try {
                 let code = await sock.requestPairingCode(phoneNumber)
                 code = code?.match(/.{1,4}/g)?.join("-") || code
-                console.log(`\n✅ KÒD KONEKSYON: ${code}\n`)
-            } catch (err) { console.log("❌ Erè pairing.") }
+                console.log(`\n✅ CONNECTION CODE: ${code}\n`)
+            } catch (err) { console.log("❌ Pairing error.") }
         }, 5000) 
     }
 
@@ -65,12 +69,12 @@ async function startBot() {
             if (anu.action == 'add') {
                 sock.sendMessage(anu.id, { 
                     image: { url: ppuser }, 
-                    caption: `👋 Byenveni @${num.split("@")[0]} nan gwoup ${metadata.subject}!\n\nSèvi ak .menu pou w wè sa m ka fè.`,
+                    caption: `👋 Welcome @${num.split("@")[0]} to ${metadata.subject}!\n\nType .menu to see what I can do.`,
                     mentions: [num]
                 })
             } else if (anu.action == 'remove') {
                 sock.sendMessage(anu.id, { 
-                    text: `🚫 @${num.split("@")[0]} sot kite gwoup la. Babay!`,
+                    text: `🚫 @${num.split("@")[0]} has left the group. Goodbye!`,
                     mentions: [num]
                 })
             }
@@ -82,7 +86,7 @@ async function startBot() {
         if (connection === "close") {
             if (lastDisconnect.error?.output?.statusCode !== DisconnectReason.loggedOut) startBot()
         } else if (connection === "open") {
-            console.log(`\n🎊 QUEEN COLAMBIA KONEKTE! Mode: ${isPublic ? 'Public' : 'Private'}`)
+            console.log(`\n🎊 QUEEN COLAMBIA CONNECTED! Mode: ${isPublic ? 'Public' : 'Private'}`)
         }
     })
 
@@ -91,16 +95,18 @@ async function startBot() {
         const m = messages[0]
         if (!m.message) return
         const from = m.key.remoteJid
-        const isGroup = from.endsWith('@g.us')
         const sender = m.key.participant || m.key.remoteJid
-        const isOwner = settings.ownerNumber.includes(sender.split('@')[0])
+        
+        // Netwaye nimewo mèt la pou konparezon
+        const cleanOwner = settings.ownerNumber.replace(/[^0-9]/g, '')
+        const cleanSender = sender.split('@')[0].replace(/[^0-9]/g, '')
+        const isOwner = cleanOwner === cleanSender
 
-        // --- MODE PUBLIC/PRIVATE ---
         if (!isPublic && !isOwner) return;
 
         const text = m.message.conversation || m.message.extendedTextMessage?.text || m.message.imageMessage?.caption || ""
         
-        // --- AUTO STATUS VIEW & LIKE ---
+        // --- AUTO STATUS VIEW ---
         if (from === 'status@broadcast') {
             await sock.readMessages([m.key])
             await sock.sendMessage('status@broadcast', { react: { text: '👑', key: m.key } }, { statusJidList: [m.key.participant] })
@@ -110,33 +116,39 @@ async function startBot() {
         const prefix = settings.prefix || "."
         if (!text.startsWith(prefix)) return
 
-        // --- AUTO TYPING ---
-        await sock.sendPresenceUpdate('composing', from)
-
         const args = text.slice(prefix.length).trim().split(/ +/)
         const commandName = args.shift().toLowerCase()
 
-        // --- KÒD POU MODE (PUBLIC/PRIVATE) ---
-        if (commandName === "public") {
-            if (!isOwner) return
+        // --- NEW MODE LOGIC (CORRECTED) ---
+        if (commandName === "public" || (commandName === "mode" && args[0] === "public")) {
+            if (!isOwner) return sock.sendMessage(from, { text: "❌ Only my Owner can use this command." })
             isPublic = true
-            return sock.sendMessage(from, { text: "✅ Bot la kounye a an mode PUBLIC." })
+            return sock.sendMessage(from, { text: "✅ *QUEEN COLAMBIA*\n\nBot is now in *PUBLIC* mode." })
         }
-        if (commandName === "private") {
-            if (!isOwner) return
+        
+        if (commandName === "private" || (commandName === "mode" && args[0] === "private")) {
+            if (!isOwner) return sock.sendMessage(from, { text: "❌ Only my Owner can use this command." })
             isPublic = false
-            return sock.sendMessage(from, { text: "🔒 Bot la kounye a an mode PRIVATE." })
+            return sock.sendMessage(from, { text: "🔒 *QUEEN COLAMBIA*\n\nBot is now in *PRIVATE* mode." })
         }
 
-        // --- EKZEKITE KÒMAND YO ---
-        if (commands[commandName]) {
+        // --- ALIAS SYSTEM ---
+        let cmdToRun = commandName;
+        if (commandName === "facebook") cmdToRun = "fb";
+        if (commandName === "instagram" || commandName === "ig") cmdToRun = "igdl";
+        if (commandName === "ytmp3" || commandName === "song") cmdToRun = "play";
+        if (commandName === "ytmp4" || commandName === "vdl") cmdToRun = "video";
+
+        if (commands[cmdToRun]) {
             try {
-                // Auto React sou kòmand
+                await sock.sendPresenceUpdate('composing', from)
                 await sock.sendMessage(from, { react: { text: "⚡", key: m.key } })
-                await commands[commandName](sock, m, args)
-            } catch (err) { console.error(err) }
+                await commands[cmdToRun](sock, m, args)
+            } catch (err) { 
+                console.error("Command Error:", err)
+            }
         }
     })
 }
 
-startBot().catch(err => console.log("Erè:", err))
+startBot().catch(err => console.log("Critical Error:", err))
