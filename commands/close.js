@@ -1,29 +1,35 @@
 module.exports = async (sock, m) => {
     const chatJid = m.key.remoteJid;
 
-    // 1. Tcheke si se nan yon gwoup
+    // 1. Check if the command is used in a group
     if (!chatJid.endsWith('@g.us')) {
-        return await sock.sendMessage(chatJid, { text: "❌ Kòmand sa fèt pou gwoup sèlman!" }, { quoted: m });
+        return await sock.sendMessage(chatJid, { text: "❌ *Error:* This command can only be used in groups!" }, { quoted: m });
     }
 
     try {
-        // 2. Fèmen gwoup la (announcement vle di Admin sèlman)
+        // 2. Change group settings to 'announcement' (Admins only)
         await sock.groupSettingUpdate(chatJid, 'announcement');
 
         const response = `
 *╭───〔 🔒 GROUP CLOSED 〕───⭐*
 │
-│ 📢 *Status:* Se Admin sèlman ki ka pale kounye a.
-│ 👮 *By:* @${(m.sender || "").split('@')[0]}
+│ 📢 *Status:* Only Admins can send messages now.
+│ 👮 *Action by:* @${(m.sender || m.key.participant || "").split('@')[0]}
 │ 🤖 *Bot:* QUEEN COLAMBIA
 │
 *╰──────────────⭐*
         `.trim();
 
-        await sock.sendMessage(chatJid, { text: response, mentions: [m.sender] }, { quoted: m });
+        await sock.sendMessage(chatJid, { 
+            text: response, 
+            mentions: [m.sender || m.key.participant] 
+        }, { quoted: m });
 
     } catch (err) {
-        console.error("Erè nan close group:", err);
-        await sock.sendMessage(chatJid, { text: "⚠️ Mwen bezwen pèmisyon Admin pou m fèmen gwoup la!" }, { quoted: m });
+        console.error("Group Close Error:", err);
+        // Error usually occurs if the bot is not an admin
+        await sock.sendMessage(chatJid, { 
+            text: "⚠️ *Permission Denied:* I need to be a **Group Admin** to close this group!" 
+        }, { quoted: m });
     }
 }
