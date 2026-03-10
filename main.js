@@ -11,7 +11,7 @@ const http = require("http")
 const path = require("path") 
 const settings = require("./settings")
 
-// --- SERVEUR UPTIME ---
+// --- UPTIME SERVER ---
 const startServer = (port) => {
     const server = http.createServer((req, res) => {
         res.writeHead(200);
@@ -39,32 +39,42 @@ async function startBot() {
         printQRInTerminal: false
     })
 
-    // --- PAIRING CODE (CHIFFRES) ---
+    // --- PAIRING CODE LOGIC ---
     if (!sock.authState.creds.registered) {
         const ownerPhone = settings.ownerNumber.replace(/[^0-9]/g, '')
-        console.log(`\n🔄 Demande de code pour : ${ownerPhone}...`)
+        console.log(`\n🔄 Requesting pairing code for: ${ownerPhone}...`)
         setTimeout(async () => {
             try {
                 let code = await sock.requestPairingCode(ownerPhone)
                 code = code?.match(/.{1,4}/g)?.join("-") || code
-                console.log(`\n✅ VOTRE CODE DE CONNEXION : ${code}\n`)
-            } catch (err) { console.log("Erreur Pairing:", err.message) }
+                console.log(`\n✅ YOUR PAIRING CODE: ${code}\n`)
+            } catch (err) { console.log("Pairing Error:", err.message) }
         }, 3000)
     }
 
     sock.ev.on("creds.update", saveCreds)
 
-    // --- AUTO STATUS REACT ---
+    // --- AUTO STATUS REACT (RANDOM EMOJIS) ---
     sock.ev.on("messages.upsert", async (chatUpdate) => {
         const m = chatUpdate.messages[0];
         if (!m.message) return;
         if (m.key.remoteJid === "status@broadcast") {
-            await sock.readMessages([m.key]);
-            await sock.sendMessage("status@broadcast", { react: { text: "💚", key: m.key } }, { statusJidList: [m.key.participant] });
+            // List of various emojis
+            const emojis = ["💚", "🔥", "✨", "🙌", "💯", "👑", "🚀", "😍", "⚡", "💎", "😇", "🧿"];
+            const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
+
+            try {
+                await sock.readMessages([m.key]); // Mark as seen
+                await sock.sendMessage("status@broadcast", { 
+                    react: { text: randomEmoji, key: m.key } 
+                }, { statusJidList: [m.key.participant] });
+                
+                console.log(`✅ Reacted to ${m.pushName || 'Status'} with ${randomEmoji}`);
+            } catch (e) { console.error("Status error:", e) }
         }
     });
 
-    // --- WELCOME & GOODBYE ---
+    // --- WELCOME & GOODBYE (ENGLISH) ---
     sock.ev.on("group-participants.update", async (anu) => {
         const { id, participants, action } = anu;
         try {
@@ -73,11 +83,21 @@ async function startBot() {
                 let name = num.split('@')[0];
                 if (action === 'add') {
                     await sock.sendMessage(id, { 
-                        text: `👋 Bienvenue @${name} dans *${metadata.subject}* !\n\n🔔 Suis notre canal :\n${channelLink}`,
-                        contextInfo: { mentionedJid: [num], externalAdReply: { title: "QUEEN COLAMBIA", body: "Rejoins le canal", thumbnailUrl: "https://files.catbox.moe/zdk50s.jpg", sourceUrl: channelLink, mediaType: 1, renderLargerThumbnail: true }}
+                        text: `👋 Welcome @${name} to *${metadata.subject}*!\n\n🔔 Join our official channel:\n${channelLink}`,
+                        contextInfo: { 
+                            mentionedJid: [num], 
+                            externalAdReply: { 
+                                title: "QUEEN COLAMBIA COMMUNITY", 
+                                body: "Stay Updated!", 
+                                thumbnailUrl: "https://files.catbox.moe/zdk50s.jpg", 
+                                sourceUrl: channelLink, 
+                                mediaType: 1, 
+                                renderLargerThumbnail: true 
+                            }
+                        }
                     });
                 } else if (action === 'remove') {
-                    await sock.sendMessage(id, { text: `👋 Au revoir @${name}...`, contextInfo: { mentionedJid: [num] }});
+                    await sock.sendMessage(id, { text: `👋 Goodbye @${name}, we hope to see you again!`, contextInfo: { mentionedJid: [num] }});
                 }
             }
         } catch (e) { console.log(e) }
@@ -89,12 +109,12 @@ async function startBot() {
             if (lastDisconnect.error?.output?.statusCode !== DisconnectReason.loggedOut) startBot()
         } else if (connection === "open") {
             const ownerJid = settings.ownerNumber.replace(/[^0-9]/g, '') + "@s.whatsapp.net"
-            console.log(`\n🎊 QUEEN COLAMBIA CONNECTÉE !`)
-            await sock.sendMessage(ownerJid, { text: `✅ *QUEEN COLAMBIA ONLINE*\n\n🛡️ Antilink: ${antilink ? 'ON' : 'OFF'}` })
+            console.log(`\n🎊 QUEEN COLAMBIA IS CONNECTED!`)
+            await sock.sendMessage(ownerJid, { text: `✅ *QUEEN COLAMBIA ONLINE*\n\n🛡️ Antilink: ${antilink ? 'ON' : 'OFF'}\n🔄 Status React: Enabled` })
         }
     })
 
-    // --- GESTION DES COMMANDES ---
+    // --- COMMAND HANDLER ---
     const commands = {}
     const commandsPath = path.join(__dirname, "commands")
     if (fs.existsSync(commandsPath)) {
@@ -117,13 +137,14 @@ async function startBot() {
         const text = (m.message.conversation || m.message.extendedTextMessage?.text || "").trim()
         const prefix = settings.prefix || "."
 
-        // --- ANTILINK ---
+        // --- ANTILINK LOGIC ---
         if (isGroup && antilink && text.includes("chat.whatsapp.com") && !isOwner) {
             const groupMetadata = await sock.groupMetadata(from)
             const admins = groupMetadata.participants.filter(p => p.admin !== null).map(p => p.id)
             if (admins.includes(sock.user.id.split(':')[0] + '@s.whatsapp.net') && !admins.includes(sender)) {
                 await sock.sendMessage(from, { delete: m.key })
                 await sock.groupParticipantsUpdate(from, [sender], "remove")
+                await sock.sendMessage(from, { text: `🚫 *Antilink:* Group links are not allowed here.` })
             }
         }
 
@@ -131,25 +152,27 @@ async function startBot() {
         const args = text.slice(prefix.length).trim().split(/ +/)
         const commandName = args.shift().toLowerCase()
 
-        // --- AUTO-TYPING ---
+        // --- AUTO-TYPING EFFECT ---
         await sock.sendPresenceUpdate('composing', from);
 
-        // Commande Antilink ON/OFF
+        // Settings: Antilink Toggle
         if (commandName === "antilink" && isOwner) {
             antilink = args[0] === "on"
-            return sock.sendMessage(from, { text: `🛡️ Antilink: *${antilink ? 'ON' : 'OFF'}*` })
+            return sock.sendMessage(from, { text: `🛡️ Antilink status: *${antilink ? 'ENABLED' : 'DISABLED'}*` })
         }
 
-        // Commande VV (View Once)
+        // Feature: View Once Bypass (VV)
         if (commandName === "vv") {
             const quoted = m.message.extendedTextMessage?.contextInfo?.quotedMessage
             const viewOnce = m.message.viewOnceMessageV2 || m.message.viewOnceMessage || quoted?.viewOnceMessageV2 || quoted?.viewOnceMessage
-            if (!viewOnce) return sock.sendMessage(from, { text: "Réponds à un message View Once !" })
+            if (!viewOnce) return sock.sendMessage(from, { text: "Please reply to a View Once message!" })
+            
             const msgType = Object.keys(viewOnce.message)[0]
             const stream = await downloadContentFromMessage(viewOnce.message[msgType], msgType.replace('Message', ''))
             let buffer = Buffer.from([])
             for await (const chunk of stream) { buffer = Buffer.concat([buffer, chunk]) }
-            const cap = `👁️ *VV BYPASS* - QUEEN COLAMBIA`
+            
+            const cap = `👁️ *VIEW ONCE BYPASS* - QUEEN COLAMBIA`
             if (msgType === 'imageMessage') await sock.sendMessage(from, { image: buffer, caption: cap }, { quoted: m })
             if (msgType === 'videoMessage') await sock.sendMessage(from, { video: buffer, caption: cap }, { quoted: m })
             return
