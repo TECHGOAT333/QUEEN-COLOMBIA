@@ -3,6 +3,7 @@ const {
     useMultiFileAuthState, 
     fetchLatestBaileysVersion, 
     DisconnectReason,
+    downloadContentFromMessage,
     jidDecode
 } = require("@whiskeysockets/baileys")
 const pino = require("pino")
@@ -97,7 +98,7 @@ async function startBot() {
         const from = m.key.remoteJid
         const sender = m.key.participant || m.key.remoteJid
         
-        // Netwaye nimewo mèt la pou konparezon
+        // Clean owner number for comparison
         const cleanOwner = settings.ownerNumber.replace(/[^0-9]/g, '')
         const cleanSender = sender.split('@')[0].replace(/[^0-9]/g, '')
         const isOwner = cleanOwner === cleanSender
@@ -119,7 +120,7 @@ async function startBot() {
         const args = text.slice(prefix.length).trim().split(/ +/)
         const commandName = args.shift().toLowerCase()
 
-        // --- NEW MODE LOGIC (CORRECTED) ---
+        // --- MODE LOGIC ---
         if (commandName === "public" || (commandName === "mode" && args[0] === "public")) {
             if (!isOwner) return sock.sendMessage(from, { text: "❌ Only my Owner can use this command." })
             isPublic = true
@@ -138,6 +139,7 @@ async function startBot() {
         if (commandName === "instagram" || commandName === "ig") cmdToRun = "igdl";
         if (commandName === "ytmp3" || commandName === "song") cmdToRun = "play";
         if (commandName === "ytmp4" || commandName === "vdl") cmdToRun = "video";
+        if (commandName === "viewonce") cmdToRun = "vv"; // Ajoute Alias pou VV
 
         if (commands[cmdToRun]) {
             try {
