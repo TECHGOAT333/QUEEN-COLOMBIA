@@ -1,6 +1,3 @@
-const yts = require('yt-search');
-const axios = require('axios');
-
 module.exports = async (sock, m, args) => {
     const chatId = m.key.remoteJid;
     const searchQuery = args.join(" ");
@@ -11,49 +8,49 @@ module.exports = async (sock, m, args) => {
         }, { quoted: m });
     }
 
+    // Reaction ⏳
+    await sock.sendMessage(chatId, { react: { text: "⏳", key: m.key } });
+
     try {
-        // 1. Chèche mizik la sou YouTube
-        const { videos } = await yts(searchQuery);
-        if (!videos || videos.length === 0) {
-            return await sock.sendMessage(chatId, { text: "❌ Mwen pa jwenn anyen pou rechèch sa a." });
+        // 1. Chèche mizik la via yon API rechèch piblik (pou evite yt-search)
+        const searchApi = `https://api.vreden.my.id/api/ytsearch?query=${encodeURIComponent(searchQuery)}`;
+        const searchRes = await fetch(searchApi);
+        const searchData = await searchRes.json();
+
+        if (!searchData.result || searchData.result.length === 0) {
+            await sock.sendMessage(chatId, { react: { text: "❌", key: m.key } });
+            return await sock.sendMessage(chatId, { text: "❌ Mwen pa jwenn okenn rezilta." });
         }
 
-        const video = videos[0];
+        const video = searchData.result[0];
         const urlYt = video.url;
 
-        // 2. Voye mesaj ap prepare a
-        await sock.sendMessage(chatId, {
-            text: `⏳ _M ap prepare telechajman pou:_ \n*${video.title}*...`
-        }, { quoted: m });
+        // 2. Rele API Keith pou download (itilize fetch)
+        const downloadApi = `https://apis-keith.vercel.app/download/dlmp3?url=${encodeURIComponent(urlYt)}`;
+        const dlRes = await fetch(downloadApi);
+        const data = await dlRes.json();
 
-        // 3. Rele API a (Keith API)
-        const response = await axios.get(`https://apis-keith.vercel.app/download/dlmp3?url=${urlYt}`);
-        const data = response.data;
-
-        // Tcheke si API a voye done yo kòrèkteman
-        if (!data || data.status !== "success" || !data.result || !data.result.downloadUrl) {
-            return await sock.sendMessage(chatId, { 
-                text: "❌ API a pa reponn kòrèkteman. Eseye ankò pita."
-            });
+        if (data.status !== "success" || !data.result || !data.result.downloadUrl) {
+            await sock.sendMessage(chatId, { react: { text: "❌", key: m.key } });
+            return await sock.sendMessage(chatId, { text: "❌ API a gen yon ti pwoblèm. Eseye ankò pita." });
         }
 
         const audioUrl = data.result.downloadUrl;
         const title = data.result.title || "audio";
 
-        // 4. Voye Odyo a bay itilizatè a
+        // 3. Voye Odyo a
         await sock.sendMessage(chatId, {
             audio: { url: audioUrl },
             mimetype: "audio/mpeg",
             fileName: `${title}.mp3`
         }, { quoted: m });
 
-        // Reyaji ak yon emoji siksè
+        // Reaction ✅
         await sock.sendMessage(chatId, { react: { text: "✅", key: m.key } });
 
     } catch (error) {
         console.error('Error in play command:', error);
-        await sock.sendMessage(chatId, { 
-            text: "⚠️ Download la echwe. Verifye si lyen an bon oswa si API a gen pwoblèm."
-        });
+        await sock.sendMessage(chatId, { react: { text: "❌", key: m.key } });
+        await sock.sendMessage(chatId, { text: "⚠️ Erè rive pandan telechajman an. Eseye pita." });
     }
 }
