@@ -1,4 +1,4 @@
-Module.exports = async (sock, m) => {
+module.exports = async (sock, m) => {
 
 const uptime = "0h 0m 0s" 
 // Mwen korije nimewo a pou l vin 29 paske se sa ki nan lis la
