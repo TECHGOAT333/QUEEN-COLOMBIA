@@ -1,56 +1,62 @@
+
 const { downloadContentFromMessage } = require("@whiskeysockets/baileys");
 
-module.exports = async (sock, m, args) => {
+module.exports = async (sock, m) => {
     const chatId = m.key.remoteJid;
-    
-    // 1. Identify the quoted message (reply)
-    const quoted = m.message.extendedTextMessage?.contextInfo?.quotedMessage;
-    
-    // 2. Locate the View Once content within the message layers
-    const viewOnce = quoted?.viewOnceMessageV2 || quoted?.viewOnceMessage || 
-                     m.message.viewOnceMessageV2 || m.message.viewOnceMessage;
-
-    // 3. Extract the actual media content
-    const actualContent = viewOnce?.message || quoted;
-
-    // Check if it's a View Once image or video
-    const isImage = actualContent?.imageMessage;
-    const isVideo = actualContent?.videoMessage;
-
-    if (!isImage && !isVideo) {
-        return await sock.sendMessage(chatId, { 
-            text: "❌ *Error:* Please reply to a *View Once* photo or video." 
-        }, { quoted: m });
-    }
-
-    // Add a loading reaction
-    await sock.sendMessage(chatId, { react: { text: "⏳", key: m.key } });
 
     try {
-        const type = isImage ? 'imageMessage' : 'videoMessage';
-        const media = actualContent[type];
+        // 1. Check if the user replied to a message
+        const quoted = m.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+        if (!quoted) {
+            return await sock.sendMessage(chatId, { 
+                text: "❓ *Usage:* Please reply to a **View Once** photo or video." 
+            }, { quoted: m });
+        }
+
+        // 2. Identify the View Once layer (V1, V2, or direct)
+        const viewOnce = quoted.viewOnceMessageV2 || quoted.viewOnceMessage || quoted;
         
-        // Download the encrypted buffer
-        const stream = await downloadContentFromMessage(media, isImage ? 'image' : 'video');
+        // 3. Extract the actual media content
+        const messageContent = viewOnce.message || viewOnce;
+        const type = Object.keys(messageContent)[0];
+
+        // Validate if it is an image or video
+        if (!type.includes('imageMessage') && !type.includes('videoMessage')) {
+            return await sock.sendMessage(chatId, { 
+                text: "❌ *Error:* This message does not contain a View Once image or video." 
+            }, { quoted: m });
+        }
+
+        // 4. Add a loading reaction
+        await sock.sendMessage(chatId, { react: { text: "⏳", key: m.key } });
+
+        const media = messageContent[type];
+        const stream = await downloadContentFromMessage(
+            media, 
+            type.replace('Message', '').replace('viewOnce', '')
+        );
+
         let buffer = Buffer.from([]);
         for await (const chunk of stream) {
             buffer = Buffer.concat([buffer, chunk]);
         }
 
-        const caption = `👁️ *VIEW ONCE BYPASS*\n👑 *QUEEN COLAMBIA*`;
+        const caption = `👁️ *VIEW ONCE RECOVERED*\n👑 *QUEEN COLAMBIA V3*`;
 
-        // Send the recovered media back
-        if (isImage) {
+        // 5. Send back the recovered media
+        if (type.includes('image')) {
             await sock.sendMessage(chatId, { image: buffer, caption: caption }, { quoted: m });
-        } else {
+        } else if (type.includes('video')) {
             await sock.sendMessage(chatId, { video: buffer, caption: caption }, { quoted: m });
         }
 
         await sock.sendMessage(chatId, { react: { text: "✅", key: m.key } });
 
     } catch (e) {
-        console.error("VV Error:", e);
+        console.error("VV Recovery Error:", e);
         await sock.sendMessage(chatId, { react: { text: "❌", key: m.key } });
-        await sock.sendMessage(chatId, { text: "❌ *Technical Error:* Failed to decode media." });
+        await sock.sendMessage(chatId, { 
+            text: "⚠️ *System Error:* Failed to fetch media. The file may have expired or was already processed." 
+        }, { quoted: m });
     }
 };
