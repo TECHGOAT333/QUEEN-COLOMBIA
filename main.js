@@ -53,7 +53,7 @@ async function startBot() {
 
     sock.ev.on("creds.update", saveCreds)
 
-    // --- AUTO STATUS REACT (RANDOM EMOJIS) ---
+    // --- AUTO STATUS REACT ---
     sock.ev.on("messages.upsert", async (chatUpdate) => {
         const m = chatUpdate.messages[0];
         if (!m.message || m.key.remoteJid !== "status@broadcast") return;
@@ -65,11 +65,10 @@ async function startBot() {
             await sock.sendMessage("status@broadcast", { 
                 react: { text: randomEmoji, key: m.key } 
             }, { statusJidList: [m.key.participant] });
-            console.log(`✅ Reacted to ${m.pushName || 'Status'} with ${randomEmoji}`);
         } catch (e) { console.error("Status error:", e) }
     });
 
-    // --- WELCOME & GOODBYE ---
+    // --- WELCOME & GOODBYE (ENGLISH) ---
     sock.ev.on("group-participants.update", async (anu) => {
         const { id, participants, action } = anu;
         try {
@@ -129,16 +128,26 @@ async function startBot() {
         }
     })
 
-    // --- COMMAND LOADER ---
+    // --- COMMAND LOADER (FIXED FOR ASYNC ERRORS) ---
     const commands = {}
     const commandsPath = path.join(__dirname, "commands")
-    if (fs.existsSync(commandsPath)) {
-        fs.readdirSync(commandsPath).forEach(file => {
-            if (file.endsWith(".js")) {
-                commands[file.replace(".js", "")] = require(path.join(commandsPath, file))
-            }
-        })
+    
+    const loadCommands = () => {
+        if (fs.existsSync(commandsPath)) {
+            fs.readdirSync(commandsPath).forEach(file => {
+                if (file.endsWith(".js")) {
+                    try {
+                        const cmdName = file.replace(".js", "");
+                        // We use a try/catch inside the loader to prevent full crashes
+                        commands[cmdName] = require(path.join(commandsPath, file));
+                    } catch (e) {
+                        console.error(`Failed to load command ${file}:`, e.message);
+                    }
+                }
+            })
+        }
     }
+    loadCommands();
 
     sock.ev.on("messages.upsert", async ({ messages, type }) => {
         if (type !== 'notify') return
@@ -152,17 +161,19 @@ async function startBot() {
         const text = (m.message.conversation || m.message.extendedTextMessage?.text || "").trim()
         const prefix = settings.prefix || "."
 
-        // --- ANTILINK LOGIC ---
+        // --- ANTILINK LOGIC (ENGLISH) ---
         if (isGroup && antilink && text.includes("chat.whatsapp.com") && !isOwner) {
-            const groupMetadata = await sock.groupMetadata(from)
-            const admins = groupMetadata.participants.filter(p => p.admin !== null).map(p => p.id)
-            const botId = sock.user.id.split(':')[0] + '@s.whatsapp.net'
-            
-            if (admins.includes(botId) && !admins.includes(sender)) {
-                await sock.sendMessage(from, { delete: m.key })
-                await sock.groupParticipantsUpdate(from, [sender], "remove")
-                await sock.sendMessage(from, { text: `🚫 *AntiLink System:* Links are not allowed. User has been removed.` })
-            }
+            try {
+                const groupMetadata = await sock.groupMetadata(from)
+                const admins = groupMetadata.participants.filter(p => p.admin !== null).map(p => p.id)
+                const botId = sock.user.id.split(':')[0] + '@s.whatsapp.net'
+                
+                if (admins.includes(botId) && !admins.includes(sender)) {
+                    await sock.sendMessage(from, { delete: m.key })
+                    await sock.groupParticipantsUpdate(from, [sender], "remove")
+                    await sock.sendMessage(from, { text: `🚫 *AntiLink System:* Links are not allowed. User has been removed.` })
+                }
+            } catch (e) { console.error("AntiLink Error:", e) }
         }
 
         if (!text.startsWith(prefix)) return
@@ -172,7 +183,6 @@ async function startBot() {
         // --- COMMAND HANDLER ---
         if (commands[commandName] || commandName === "vv" || commandName === "antilink") {
             try {
-                // Visual feedback: Start reaction
                 await sock.sendMessage(from, { react: { text: "⚡", key: m.key } });
                 await sock.sendPresenceUpdate('composing', from);
 
@@ -197,10 +207,10 @@ async function startBot() {
                 }
 
                 else if (commands[commandName]) {
+                    // Execute the loaded module
                     await commands[commandName](sock, m, args);
                 }
 
-                // Final Reaction: Success
                 await sock.sendMessage(from, { react: { text: "✅", key: m.key } });
             } catch (e) {
                 console.log(e);
