@@ -8,7 +8,7 @@ const {
 const pino = require("pino")
 const fs = require("fs")
 const http = require("http")
-const path = require("path") // Sa a te manke a
+const path = require("path") 
 const settings = require("./settings")
 
 // --- SMART UPTIME SERVER ---
@@ -18,7 +18,7 @@ const startServer = (port) => {
         res.end('QUEEN COLAMBIA IS ONLINE');
     });
     server.listen(port, () => {
-        console.log(` Sèvè aktif sou pòt: ${port}`);
+        console.log(`🚀 Sèvè aktif sou pòt: ${port}`);
     });
     server.on('error', (e) => {
         if (e.code === 'EADDRINUSE') startServer(port + 1);
@@ -36,28 +36,30 @@ async function startBot() {
         version,
         logger: pino({ level: "silent" }),
         auth: state,
+        // Sèvi ak yon browser ki pi modèn pou WhatsApp ka voye notifikasyon an pi fasil
         browser: Browsers.macOS("Desktop"),
         printQRInTerminal: false
     })
 
     // --- PAIRING CODE LOGIC ---
     if (!sock.authState.creds.registered) {
-        // Netwaye nimewo a pou wete espas oswa karaktè espesyal
         const ownerPhone = settings.ownerNumber.replace(/[^0-9]/g, '')
         
         if (!ownerPhone) {
-            console.log("❌ Erè: Nimewo ownerNumber la pa valid nan settings.js");
+            console.log("❌ Erè: Nimewo ownerNumber la manke nan settings.js");
         } else {
             console.log(`\n🔄 Demand kòd pou: ${ownerPhone}...`);
+            // Nou ba li 5 segonn pou socket la estabilize anvan nou mande kòd la
             setTimeout(async () => {
                 try {
                     let code = await sock.requestPairingCode(ownerPhone)
                     code = code?.match(/.{1,4}/g)?.join("-") || code
                     console.log(`\n✅ KÒD PAIRING OU: ${code}\n`)
+                    console.log(`👉 Tcheke notifikasyon anlè telefòn ou kounye a!`);
                 } catch (err) { 
                     console.log("❌ Erè nan demand kòd la:", err.message) 
                 }
-            }, 6000)
+            }, 5000)
         }
     }
 
@@ -75,13 +77,14 @@ async function startBot() {
             
             console.log(`\n🎊 QUEEN COLAMBIA CONNECTED!\n📢 Mode: ${isPublic ? 'Public' : 'Private'}`)
             
+            // Notifikasyon bay Owner la lè bot la fin konekte
             await sock.sendMessage(ownerJid, { 
                 text: `✅ *QUEEN COLAMBIA IS ONLINE*\n\n⚙️ *Prefix:* [ ${prefix} ]\n📢 *Mode:* ${isPublic ? 'Public' : 'Private'}\n\nBot la konekte nèt kounye a!` 
             })
         }
     })
 
-    // 📂 Auto-load commands
+    // 📂 Auto-load commands soti nan folder "commands"
     const commands = {}
     const commandsPath = path.join(__dirname, "commands")
     
@@ -101,7 +104,7 @@ async function startBot() {
     sock.ev.on("messages.upsert", async ({ messages, type }) => {
         if (type !== 'notify') return
         const m = messages[0]
-        if (!m.message || m.key.fromMe) return // Pa reponn pwòp mesaj bot la
+        if (!m.message || m.key.fromMe) return 
         
         const from = m.key.remoteJid
         const sender = m.key.participant || m.key.remoteJid
@@ -117,7 +120,7 @@ async function startBot() {
         const args = text.slice(prefix.length).trim().split(/ +/)
         const commandName = args.shift().toLowerCase()
 
-        // Kòmand pou chanje mode (Silansye)
+        // Kòmand Mode (Owner sèlman)
         if (commandName === "public" && isOwner) {
             isPublic = true
             return sock.sendMessage(from, { text: "✅ Mode kounye a: *PUBLIC*" }, { quoted: m })
@@ -127,7 +130,7 @@ async function startBot() {
             return sock.sendMessage(from, { text: "🔒 Mode kounye a: *PRIVATE*" }, { quoted: m })
         }
 
-        // Egzekite kòmand si li egziste
+        // Egzekite kòmand la
         if (commands[commandName]) {
             try {
                 await commands[commandName](sock, m, args)
