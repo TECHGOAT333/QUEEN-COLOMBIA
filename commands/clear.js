@@ -2,21 +2,29 @@ module.exports = async (sock, m) => {
     const chatJid = m.key.remoteJid;
 
     try {
-        // 1. Voye yon mesaj avètisman
-        await sock.sendMessage(chatJid, { text: "🧹 *M ap netwaye tout mesaj nan chat sa a...*" }, { quoted: m });
+        // 1. Send a status message before clearing
+        await sock.sendMessage(chatJid, { 
+            text: "🧹 *Cleaning up this chat... Please wait.*" 
+        }, { quoted: m });
 
-        // 2. Efase mesaj yo nan nivo bot la
+        // 2. Modify the chat to delete all messages on the bot's end
         await sock.chatModify({
             delete: true,
-            lastMessages: [{ key: m.key, messageTimestamp: m.messageTimestamp }]
+            lastMessages: [{ 
+                key: m.key, 
+                messageTimestamp: m.messageTimestamp 
+            }]
         }, chatJid);
 
-        // Nòt: Nan kèk vèsyon Baileys, ou ka itilize tou:
-        // await sock.sendMessage(chatJid, { delete: m.key }); 
-        // Men 'chatModify' ak 'delete: true' se fason ki pi pwòp.
+        /* Note: This clears the chat history from the bot's perspective. 
+           It does not delete messages for other people in a group 
+           unless you use a loop to delete specific message keys.
+        */
 
     } catch (err) {
-        console.error("Erè nan clear chat:", err);
-        await sock.sendMessage(chatJid, { text: "❌ Mwen pa ka netwaye chat sa a kounye a." });
+        console.error("Clear Chat Error:", err);
+        await sock.sendMessage(chatJid, { 
+            text: "❌ *Error:* I am unable to clear this chat at the moment." 
+        });
     }
 }
