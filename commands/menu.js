@@ -1,8 +1,12 @@
 module.exports = async (sock, m) => {
     const { remoteJid } = m.key;
-    const imageUrl = "https://files.catbox.moe/zdk50s.jpg";
+    const imageUrl = "https://files.catbox.moe/3dwe96.jpg";
     const channelUrl = "https://whatsapp.com/channel/0029Vb2J9C91dAw7vxA75y2V";
     
+    // Sekirite pou m.sender
+    const sender = m.sender || m.key.participant || remoteJid || "";
+    const senderName = sender.includes('@') ? sender.split('@')[0] : "User";
+
     // Kalkile Uptime dinamik
     const seconds = process.uptime();
     const h = Math.floor(seconds / 3600);
@@ -10,13 +14,12 @@ module.exports = async (sock, m) => {
     const s = Math.floor(seconds % 60);
     const uptime = `${h}h ${min}m ${s}s`;
     
-    // Kantite kòmand ki nan lis la (22 kòmand)
     const totalCommands = 22; 
 
     const menu = `
 *─── « 👑 QUEEN COLAMBIA » ───*
 
-   👤 *USER:* @${m.sender.split('@')[0]}
+   👤 *USER:* @${senderName}
    ⌨️ *PREFIX:* .
    📊 *COMMANDS:* ${totalCommands}
    ⏳ *UPTIME:* ${uptime}
@@ -56,19 +59,23 @@ module.exports = async (sock, m) => {
       *© 2026 QUEEN COLAMBIA*
     `.trim();
 
-    await sock.sendMessage(remoteJid, { 
-        image: { url: imageUrl }, 
-        caption: menu,
-        mentions: [m.sender],
-        contextInfo: {
-            externalAdReply: {
-                title: "QUEEN COLAMBIA OFFICIAL",
-                body: "Powered by WeedTech",
-                thumbnailUrl: imageUrl,
-                sourceUrl: channelUrl,
-                mediaType: 1,
-                renderLargerThumbnail: false
+    try {
+        await sock.sendMessage(remoteJid, { 
+            image: { url: imageUrl }, 
+            caption: menu,
+            mentions: [sender], // Sèvi ak varyab sekirite a
+            contextInfo: {
+                externalAdReply: {
+                    title: "QUEEN COLAMBIA OFFICIAL",
+                    body: "Powered by WeedTech",
+                    thumbnailUrl: imageUrl,
+                    sourceUrl: channelUrl,
+                    mediaType: 1,
+                    renderLargerThumbnail: false
+                }
             }
-        }
-    }, { quoted: m });
+        }, { quoted: m });
+    } catch (e) {
+        console.error("Erè nan voye menu: ", e);
+    }
 }
