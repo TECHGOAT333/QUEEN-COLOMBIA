@@ -1,59 +1,64 @@
-const yts = require('yt-search');
-const axios = require('axios');
+const axios = require("axios");
+const yts = require("yt-search");
 
 module.exports = async (sock, m, args) => {
     const chatId = m.key.remoteJid;
-    const searchQuery = args.join(" ");
+    const query = args.join(" ");
 
-    if (!searchQuery) {
-        return await sock.sendMessage(chatId, { 
-            text: "👑 *QUEEN COLAMBIA*\n\nKi mizik ou vle m telechaje pou ou?"
+    if (!query) {
+        return await sock.sendMessage(chatId, {
+            text: "👑 *QUEEN COLAMBIA*\n\n⚠️ Tanpri mete yon lyen YouTube oswa non yon mizik.\n\n*Egzanp:* .ytmp3 Bob Marley Is This Love"
         }, { quoted: m });
     }
 
     try {
-        // 1. Chèche mizik la sou YouTube
-        const { videos } = await yts(searchQuery);
-        if (!videos || videos.length === 0) {
-            return await sock.sendMessage(chatId, { text: "❌ Mwen pa jwenn anyen pou rechèch sa a." });
+        let videoUrl = query;
+
+        // 1. Reyaji pou montre bot la ap chèche
+        await sock.sendMessage(chatId, { react: { text: "⏳", key: m.key } });
+
+        // 2. Si se pa yon lyen, nou chèche l sou YouTube
+        if (!query.includes("youtube.com") && !query.includes("youtu.be")) {
+            const search = await yts(query);
+            if (!search.videos || search.videos.length === 0) {
+                return await sock.sendMessage(chatId, { text: `❌ Mwen pa jwenn anyen pou: ${query}` });
+            }
+            videoUrl = search.videos[0].url;
         }
 
-        const video = videos[0];
-        const urlYt = video.url;
+        // 3. Rele API David Cyril la
+        const apiUrl = `https://apis.davidcyriltech.my.id/download/ytmp3?url=${encodeURIComponent(videoUrl)}`;
+        const response = await axios.get(apiUrl);
+        const data = response.data?.result;
 
-        // 2. Voye mesaj ap prepare a
-        await sock.sendMessage(chatId, {
-            text: `⏳ _M ap prepare telechajman pou:_ \n*${video.title}*...`
-        }, { quoted: m });
-
-        // 3. Rele API a (Keith API)
-        const response = await axios.get(`https://apis-keith.vercel.app/download/dlmp3?url=${urlYt}`);
-        const data = response.data;
-
-        // Tcheke si API a voye done yo kòrèkteman
-        if (!data || data.status !== "success" || !data.result || !data.result.downloadUrl) {
-            return await sock.sendMessage(chatId, { 
-                text: "❌ API a pa reponn kòrèkteman. Eseye ankò pita."
-            });
+        if (!data || !data.download_url) {
+            await sock.sendMessage(chatId, { react: { text: "❌", key: m.key } });
+            return await sock.sendMessage(chatId, { text: "❌ API a pa ka jwenn odyo a. Eseye ankò pita." });
         }
 
-        const audioUrl = data.result.downloadUrl;
-        const title = data.result.title || "audio";
-
-        // 4. Voye Odyo a bay itilizatè a
+        // 4. Voye Odyo a ak bèl prezantasyon
         await sock.sendMessage(chatId, {
-            audio: { url: audioUrl },
+            audio: { url: data.download_url },
             mimetype: "audio/mpeg",
-            fileName: `${title}.mp3`
+            fileName: `${data.title}.mp3`,
+            contextInfo: {
+                externalAdReply: {
+                    title: data.title,
+                    body: "QUEEN COLAMBIA MUSIC",
+                    thumbnailUrl: data.thumbnail,
+                    sourceUrl: videoUrl,
+                    mediaType: 1,
+                    renderLargerThumbnail: true
+                }
+            }
         }, { quoted: m });
 
-        // Reyaji ak yon emoji siksè
+        // 5. Reaction final
         await sock.sendMessage(chatId, { react: { text: "✅", key: m.key } });
 
     } catch (error) {
-        console.error('Error in play command:', error);
-        await sock.sendMessage(chatId, { 
-            text: "⚠️ Download la echwe. Verifye si lyen an bon oswa si API a gen pwoblèm."
-        });
+        console.error("Erè YTPlay:", error.message);
+        await sock.sendMessage(chatId, { react: { text: "❌", key: m.key } });
+        await sock.sendMessage(chatId, { text: "❌ Yon erè rive. Verifye koneksyon API a." });
     }
-}
+};
