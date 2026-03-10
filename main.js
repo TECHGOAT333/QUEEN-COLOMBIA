@@ -8,14 +8,23 @@ const {
 const pino = require("pino")
 const fs = require("fs")
 const path = require("path")
-const http = require("http") // Sa a pa bezwen npm install
+const http = require("http")
 const settings = require("./settings")
 
-// --- SIMPLE UPTIME SERVER (No Express Needed) ---
-http.createServer((req, res) => {
+// --- SAFE UPTIME SERVER (Kòrèk pou OptikLink) ---
+const server = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/html' });
     res.end('<h1>QUEEN COLAMBIA IS ONLINE</h1>');
-}).listen(process.env.PORT || 3000);
+});
+
+// Sa ap anpeche bot la crash si pò a deja okipe pa yon lòt moun
+server.on('error', (e) => {
+    if (e.code === 'EADDRINUSE') {
+        console.log('⚠️ Port okipe, bot la ap kontinye kouri san sèvè web la...');
+    }
+});
+
+server.listen(process.env.PORT || 3000);
 
 let isPublic = true; 
 
