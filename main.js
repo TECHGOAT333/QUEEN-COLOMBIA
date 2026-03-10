@@ -2,8 +2,7 @@ const {
     default: makeWASocket, 
     useMultiFileAuthState, 
     fetchLatestBaileysVersion, 
-    DisconnectReason,
-    Browsers
+    DisconnectReason
 } = require("@whiskeysockets/baileys")
 const pino = require("pino")
 const fs = require("fs")
@@ -36,8 +35,8 @@ async function startBot() {
         version,
         logger: pino({ level: "silent" }),
         auth: state,
-        // Sèvi ak yon browser ki pi modèn pou WhatsApp ka voye notifikasyon an pi fasil
-        browser: Browsers.macOS("Desktop"),
+        // Konfigirasyon sa a ede WhatsApp voye notifikasyon an pi byen
+        browser: ["Ubuntu", "Chrome", "20.0.04"],
         printQRInTerminal: false
     })
 
@@ -49,13 +48,14 @@ async function startBot() {
             console.log("❌ Erè: Nimewo ownerNumber la manke nan settings.js");
         } else {
             console.log(`\n🔄 Demand kòd pou: ${ownerPhone}...`);
-            // Nou ba li 5 segonn pou socket la estabilize anvan nou mande kòd la
+            
             setTimeout(async () => {
                 try {
                     let code = await sock.requestPairingCode(ownerPhone)
                     code = code?.match(/.{1,4}/g)?.join("-") || code
                     console.log(`\n✅ KÒD PAIRING OU: ${code}\n`)
-                    console.log(`👉 Tcheke notifikasyon anlè telefòn ou kounye a!`);
+                    console.log(`👉 Si notifikasyon an pa monte, ale nan:`);
+                    console.log(`   Settings > Linked Devices > Link with phone number`);
                 } catch (err) { 
                     console.log("❌ Erè nan demand kòd la:", err.message) 
                 }
@@ -77,14 +77,13 @@ async function startBot() {
             
             console.log(`\n🎊 QUEEN COLAMBIA CONNECTED!\n📢 Mode: ${isPublic ? 'Public' : 'Private'}`)
             
-            // Notifikasyon bay Owner la lè bot la fin konekte
             await sock.sendMessage(ownerJid, { 
-                text: `✅ *QUEEN COLAMBIA IS ONLINE*\n\n⚙️ *Prefix:* [ ${prefix} ]\n📢 *Mode:* ${isPublic ? 'Public' : 'Private'}\n\nBot la konekte nèt kounye a!` 
+                text: `✅ *QUEEN COLAMBIA IS ONLINE*\n\n⚙️ *Prefix:* [ ${prefix} ]\n📢 *Mode:* ${isPublic ? 'Public' : 'Private'}` 
             })
         }
     })
 
-    // 📂 Auto-load commands soti nan folder "commands"
+    // 📂 Auto-load commands
     const commands = {}
     const commandsPath = path.join(__dirname, "commands")
     
@@ -120,17 +119,15 @@ async function startBot() {
         const args = text.slice(prefix.length).trim().split(/ +/)
         const commandName = args.shift().toLowerCase()
 
-        // Kòmand Mode (Owner sèlman)
         if (commandName === "public" && isOwner) {
             isPublic = true
-            return sock.sendMessage(from, { text: "✅ Mode kounye a: *PUBLIC*" }, { quoted: m })
+            return sock.sendMessage(from, { text: "✅ Mode: *PUBLIC*" }, { quoted: m })
         }
         if (commandName === "private" && isOwner) {
             isPublic = false
-            return sock.sendMessage(from, { text: "🔒 Mode kounye a: *PRIVATE*" }, { quoted: m })
+            return sock.sendMessage(from, { text: "🔒 Mode: *PRIVATE*" }, { quoted: m })
         }
 
-        // Egzekite kòmand la
         if (commands[commandName]) {
             try {
                 await commands[commandName](sock, m, args)
