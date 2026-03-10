@@ -1,4 +1,4 @@
-// Fonksyon itil
+// Useful functions
 function isUrl(u) {
   return typeof u === "string" && /^https?:\/\/\S+/i.test(u.trim());
 }
@@ -13,7 +13,7 @@ async function getJson(url) {
     method: 'GET',
     headers: {
       'accept': 'application/json, text/plain, */*',
-      'user-agent': 'Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Chrome/120 Safari/537.36',
+      'user-agent': 'Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
     }
   });
   const data = await response.json();
@@ -22,68 +22,64 @@ async function getJson(url) {
 
 async function fetchThumbAsBuffer(url) {
   try {
-    const response = await fetch(url, {
-      headers: { 'user-agent': 'Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Chrome/120 Safari/537.36' }
-    });
+    const response = await fetch(url);
     if (response.ok) {
       const arrayBuffer = await response.arrayBuffer();
       return Buffer.from(arrayBuffer);
     }
   } catch (e) {
-    console.log("Erè thumbnail:", e);
+    console.log("Thumbnail error:", e);
   }
   return undefined;
 }
 
-// --- PRENSIPAL KÒMAND ---
+// --- MAIN COMMAND ---
 module.exports = async (sock, m, args) => {
   const chatId = m.key.remoteJid;
   const url = args[0];
 
+  // Check for URL
   if (!url) {
     return await sock.sendMessage(chatId, {
-      text: "👑 *QUEEN COLAMBIA*\n\n❌ Tanpri mete yon lyen Facebook valid.\n*Egzanp:* .fb https://www.facebook.com/share/r/xxxx",
+      text: `*亗 QUEEN COLAMBIA 亗*\n\n❌ *Error:* Please provide a Facebook link.\n💡 *Usage:* .fb [link]`,
     }, { quoted: m });
   }
 
   const lower = url.toLowerCase();
   if (!lower.includes("facebook.com") && !lower.includes("fb.watch")) {
-    return await sock.sendMessage(chatId, { text: "❌ Sa a se pa yon lyen Facebook valid." }, { quoted: m });
+    return await sock.sendMessage(chatId, { text: "❌ *Invalid Link:* Please use a real Facebook URL." }, { quoted: m });
   }
 
-  // Reyaksyon "M ap travay" ✨
+  // Progress Reaction
   await sock.sendMessage(chatId, { react: { text: "⏳", key: m.key } });
 
   try {
     const apiUrl = `https://tele-social.vercel.app/down?url=${encodeURIComponent(url)}`;
     const res = await getJson(apiUrl);
 
-    if (res.status < 200 || res.status >= 300) {
+    if (res.status !== 200 || !res.data.status) {
       await sock.sendMessage(chatId, { react: { text: "❌", key: m.key } });
-      return await sock.sendMessage(chatId, { text: "❌ Erè nan API a. Eseye ankò pita." }, { quoted: m });
+      return await sock.sendMessage(chatId, { text: "❌ *Service Error:* I couldn't fetch this video. Try again later." }, { quoted: m });
     }
 
-    const root = res.data;
-
-    if (!root || root.status !== true || !root.data) {
-      await sock.sendMessage(chatId, { react: { text: "❌", key: m.key } });
-      return await sock.sendMessage(chatId, { text: "❌ Mwen pa ka jwenn videyo sa a. Li ka prive." }, { quoted: m });
-    }
-
-    const media = root.data.media || {};
+    const media = res.data.data.media || {};
     const videoUrl = cleanUrl(media.download) || cleanUrl(media.video);
-    const thumb = cleanUrl(root.data.thumbnail);
+    const thumb = cleanUrl(res.data.data.thumbnail);
 
     if (!videoUrl) {
       await sock.sendMessage(chatId, { react: { text: "❌", key: m.key } });
-      return await sock.sendMessage(chatId, { text: "❌ Lyen telechajman an pa jwenn." }, { quoted: m });
+      return await sock.sendMessage(chatId, { text: "❌ *Not Found:* Could not extract the download link." }, { quoted: m });
     }
 
+    // New Stylish Caption
     const caption = 
-      `╭━━━〔 📥 FACEBOOK 〕━━━╮\n` +
-      `┃ ✅ Done ak siksè!\n` +
-      `┃ 👑 Bot: QUEEN COLAMBIA\n` +
-      `╰━━━━━━━━━━━━━━━━━━━━╯`;
+      `┏━━━━━━━━━━━━━━━━━━┓\n` +
+      `┃   🎬  *FB DOWNLOADER* \n` +
+      `┠━━━━━━━━━━━━━━━━━━┫\n` +
+      `┃ ✅ *Status:* Success\n` +
+      `┃ 👑 *Bot:* QUEEN COLAMBIA\n` +
+      `┃ 👤 *Requested by:* @${m.key.participant ? m.key.participant.split('@')[0] : m.key.remoteJid.split('@')[0]}\n` +
+      `┗━━━━━━━━━━━━━━━━━━┛`;
 
     let thumbBuffer = thumb ? await fetchThumbAsBuffer(thumb) : undefined;
     
@@ -91,15 +87,16 @@ module.exports = async (sock, m, args) => {
       video: { url: videoUrl },
       mimetype: "video/mp4",
       caption: caption,
+      mentions: [m.key.participant || m.key.remoteJid],
       jpegThumbnail: thumbBuffer
     }, { quoted: m });
 
+    // Success Reaction
     await sock.sendMessage(chatId, { react: { text: "✅", key: m.key } });
 
   } catch (e) {
-    console.error("facebook error:", e);
+    console.error("FB Download error:", e);
     await sock.sendMessage(chatId, { react: { text: "❌", key: m.key } });
-    await sock.sendMessage(chatId, { text: "❌ Yon erè rive. Eseye ankò pita." }, { quoted: m });
+    await sock.sendMessage(chatId, { text: "❌ *Fatal Error:* Something went wrong." }, { quoted: m });
   }
 };
-
