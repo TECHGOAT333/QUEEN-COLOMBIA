@@ -62,14 +62,14 @@ const menu = `
 `
 
 await sock.sendMessage(m.key.remoteJid, {
-    image: { url: "https://files.catbox.moe/940jhm.jpg" }, 
+    image: { url: "https://files.catbox.moe/3dwe96.jpg" }, 
     caption: menu,
     mentions: [m.sender], 
     contextInfo: {
         externalAdReply: {
             title: "JOIN OUR OFFICIAL CHANNEL",
             body: "Stay updated with Queen Colambia",
-            thumbnailUrl: "https://files.catbox.moe/940jhm.jpg",
+            thumbnailUrl: "https://files.catbox.moe/3dwe96.jpg",
             sourceUrl: "https://whatsapp.com/channel/0029Vb2J9C91dAw7vxA75y2V", 
             mediaType: 1,
             renderLargerThumbnail: true
