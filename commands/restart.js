@@ -1,15 +1,14 @@
 module.exports = async (sock, m) => {
-
     const { remoteJid } = m.key;
 
-    // Voye mesaj la an premye
+    // 1. Send the reboot notification first
     await sock.sendMessage(remoteJid, { 
-        text: "♻️ *QUEEN COLAMBIA REBOOTING...*\nPlease wait a moment while I restart my systems." 
+        text: "♻️ *QUEEN COLAMBIA REBOOTING...*\n\nSystem is restarting. Please wait a moment while I refresh my connections. 🚀" 
     }, { quoted: m });
 
-    // Tann 2 segonn (2000ms) pou asire mesaj la pati anvan bot la "mouri"
+    // 2. Wait 2 seconds (2000ms) to ensure the message is sent before the process kills
     setTimeout(() => {
+        console.log("🔄 System reboot initiated by user...");
         process.exit(); 
     }, 2000);
-
 }
