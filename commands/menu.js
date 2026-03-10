@@ -1,11 +1,20 @@
-module.exports = async (sock, m) => {
+Module.exports = async (sock, m) => {
+
+const uptime = "0h 0m 0s" 
+// Mwen korije nimewo a pou l vin 29 paske se sa ki nan lis la
+const totalCommands = 29 
 
 const menu = `
-╭━━〔 ⚔️ *QUEEN COLAMBIA* ⚔️ 〕━━╮
+┌───⭐
+│ ⭐ BOT NAME: QUEEN COLAMBIA
+│ ⭐ USER: @${m.sender.split('@')[0]}
+│ ⭐ PREFIX: .
+│ ⭐ COMMANDS: ${totalCommands}
+│ ⭐ UPTIME: ${uptime}
+│ ⭐ DEV:  WEEDTECH 
+└──────────⭐
 
-   *KONFÈMAN:* Online ✅
-   *ITILIZATÈ:* ${m.pushName || 'Chèf'}
-   *PWOCHÈN ETAP:* Chwazi yon kòmand
+*COMMAND LIST:*
 
 ┣━〔 🤖 *BOT INFO* 〕
 ┃ 🚀 .ping
@@ -13,6 +22,8 @@ const menu = `
 ┃ 📜 .menu
 ┃ 👤 .owner
 ┃ ⏳ .runtime
+┃ 📊 .status
+┃ 🖥️ .system
 
 ┣━〔 🛠 *TOOLS* 〕
 ┃ ✍️ .say
@@ -20,29 +31,50 @@ const menu = `
 ┃ 📅 .date
 ┃ 🆔 .jid
 ┃ 🔄 .restart
+┃ 🔍 .search
+┃ 🎥 .ytmp4
+┃ 🎵 .ytmp3
+┃ 📸 .igdl
+┃ 🐦 .twitter
+┃ 🌐 .translate
 
-┣━〔 👮 *GWOUP ADMIN* 〕
+┣━〔 👮 *GROUP ADMIN* 〕
 ┃ 🔨 .kick
 ┃ ➕ .add
 ┃ ⬆️ .promote
 ┃ ⬇️ .demote
 ┃ 🧹 .delete
 ┃ 📢 .tagall
+┃ 🔓 .open
+┃ 🔒 .close
+┃ 🔗 .link
+┃ 🚫 .hidetag
 
-┣━〔 ⚙️ *REGLAJ* 〕
+┣━〔 ⚙️ *SETTINGS* 〕
 ┃ 🔧 .setprefix
 ┃ 🖼️ .setpp
 ┃ 🆘 .help
 ┃ 💬 .echo
+┃ 🔔 .welcome
+┃ 🔕 .goodbye
 
-╰━━━━━━━━━━━━━━━━━━━━╯
       *© 2026 QUEEN COLAMBIA*
 `
 
-// Voye imaj la ak nouvo style modern nan
 await sock.sendMessage(m.key.remoteJid, {
-    image: { url: "https://files.catbox.moe/940jhm.jpg" }, // Lyen foto bot la
-    caption: menu
+    image: { url: "https://files.catbox.moe/940jhm.jpg" }, 
+    caption: menu,
+    mentions: [m.sender], 
+    contextInfo: {
+        externalAdReply: {
+            title: "JOIN OUR OFFICIAL CHANNEL",
+            body: "Stay updated with Queen Colambia",
+            thumbnailUrl: "https://files.catbox.moe/940jhm.jpg",
+            sourceUrl: "https://whatsapp.com/channel/0029Vb2J9C91dAw7vxA75y2V", 
+            mediaType: 1,
+            renderLargerThumbnail: true
+        }
+    }
 }, { quoted: m })
 
 }
