@@ -1,56 +1,64 @@
 module.exports = async (sock, m, args) => {
     const chatId = m.key.remoteJid;
-    const searchQuery = args.join(" ");
+    const text = args.join(" ");
 
-    if (!searchQuery) {
+    if (!text) {
         return await sock.sendMessage(chatId, { 
-            text: "👑 *QUEEN COLAMBIA*\n\nKi mizik ou vle m telechaje pou ou?"
+            text: "亗 *QUEEN COLAMBIA* 亗\n\n❌ *Error:* Please provide a song name.\n💡 *Example:* .play Bob Marley Is This Love" 
         }, { quoted: m });
     }
 
-    // Reaction ⏳
+    // Reaction "⏳" pou montre w ap travay
     await sock.sendMessage(chatId, { react: { text: "⏳", key: m.key } });
 
     try {
-        // 1. Chèche mizik la via yon API rechèch piblik (pou evite yt-search)
-        const searchApi = `https://api.vreden.my.id/api/ytsearch?query=${encodeURIComponent(searchQuery)}`;
-        const searchRes = await fetch(searchApi);
+        // 1. Chèche mizik la sou YouTube (API rapid)
+        const searchRes = await fetch(`https://api.vreden.my.id/api/ytsearch?query=${encodeURIComponent(text)}`);
         const searchData = await searchRes.json();
 
         if (!searchData.result || searchData.result.length === 0) {
-            await sock.sendMessage(chatId, { react: { text: "❌", key: m.key } });
-            return await sock.sendMessage(chatId, { text: "❌ Mwen pa jwenn okenn rezilta." });
+            return await sock.sendMessage(chatId, { text: "❌ *Error:* No results found." });
         }
 
         const video = searchData.result[0];
-        const urlYt = video.url;
+        const videoUrl = video.url;
 
-        // 2. Rele API Keith pou download (itilize fetch)
-        const downloadApi = `https://apis-keith.vercel.app/download/dlmp3?url=${encodeURIComponent(urlYt)}`;
-        const dlRes = await fetch(downloadApi);
-        const data = await dlRes.json();
+        // 2. Telechaje Audio a
+        const dlRes = await fetch(`https://api.vreden.my.id/api/ytmp3?url=${encodeURIComponent(videoUrl)}`);
+        const dlData = await dlRes.json();
 
-        if (data.status !== "success" || !data.result || !data.result.downloadUrl) {
-            await sock.sendMessage(chatId, { react: { text: "❌", key: m.key } });
-            return await sock.sendMessage(chatId, { text: "❌ API a gen yon ti pwoblèm. Eseye ankò pita." });
+        if (!dlData.result || !dlData.result.download) {
+            throw new Error("Download link not found");
         }
 
-        const audioUrl = data.result.downloadUrl;
-        const title = data.result.title || "audio";
+        const audioUrl = dlData.result.download;
 
-        // 3. Voye Odyo a
-        await sock.sendMessage(chatId, {
-            audio: { url: audioUrl },
-            mimetype: "audio/mpeg",
-            fileName: `${title}.mp3`
+        const caption = 
+            `┏━━━━━━━━━━━━━━━━━━┓\n` +
+            `┃   🎵  *MUSIC DOWNLOADER* \n` +
+            `┠━━━━━━━━━━━━━━━━━━┫\n` +
+            `┃ 📝 *Title:* ${video.title}\n` +
+            `┃ 🕒 *Duration:* ${video.timestamp}\n` +
+            `┃ 👑 *Bot:* QUEEN COLAMBIA\n` +
+            `┗━━━━━━━━━━━━━━━━━━┛`;
+
+        // 3. Voye Caption an ak Audio a
+        await sock.sendMessage(chatId, { 
+            audio: { url: audioUrl }, 
+            mimetype: 'audio/mp4', 
+            ptt: false 
         }, { quoted: m });
 
-        // Reaction ✅
+        await sock.sendMessage(chatId, { text: caption }, { quoted: m });
+        
+        // Reaction siksè
         await sock.sendMessage(chatId, { react: { text: "✅", key: m.key } });
 
-    } catch (error) {
-        console.error('Error in play command:', error);
+    } catch (e) {
+        console.error("Play Error:", e);
         await sock.sendMessage(chatId, { react: { text: "❌", key: m.key } });
-        await sock.sendMessage(chatId, { text: "⚠️ Erè rive pandan telechajman an. Eseye pita." });
+        await sock.sendMessage(chatId, { 
+            text: "⚠️ *Error:* I couldn't download the song. Please try another title." 
+        }, { quoted: m });
     }
-}
+};
