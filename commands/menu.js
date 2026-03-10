@@ -1,81 +1,90 @@
 module.exports = async (sock, m) => {
-    const { remoteJid } = m.key;
-    const imageUrl = "https://files.catbox.moe/3dwe96.jpg";
-    const channelUrl = "https://whatsapp.com/channel/0029Vb2J9C91dAw7vxA75y2V";
-    
-    // Sekirite pou m.sender
-    const sender = m.sender || m.key.participant || remoteJid || "";
-    const senderName = sender.includes('@') ? sender.split('@')[0] : "User";
+    // 1. Sekirite pou sender (Pou evite erè 'split' la)
+    const sender = m.sender || m.key.participant || m.key.remoteJid || "";
+    const pushName = sender.split('@')[0] || "User";
 
-    // Kalkile Uptime dinamik
-    const seconds = process.uptime();
-    const h = Math.floor(seconds / 3600);
-    const min = Math.floor((seconds % 3600) / 60);
-    const s = Math.floor(seconds % 60);
-    const uptime = `${h}h ${min}m ${s}s`;
-    
-    const totalCommands = 22; 
+    // 2. Fonksyon Runtime
+    function runtime(seconds) {
+        seconds = Number(seconds);
+        var d = Math.floor(seconds / (3600 * 24));
+        var h = Math.floor(seconds % (3600 * 24) / 3600);
+        var m = Math.floor(seconds % 3600 / 60);
+        var s = Math.floor(seconds % 60);
+        return `${d > 0 ? d + "d " : ""}${h > 0 ? h + "h " : ""}${m > 0 ? m + "m " : ""}${s}s`;
+    }
+
+    const uptime = runtime(process.uptime());
+    const totalCommands = 29;
 
     const menu = `
-*─── « 👑 QUEEN COLAMBIA » ───*
+*╭───〔 👑 QUEEN COLAMBIA 〕───⭐*
+│ 👤 *USER:* @${pushName}
+│ ⌨️ *PREFIX:* .
+│ 📊 *COMMANDS:* ${totalCommands}
+│ ⏳ *UPTIME:* ${uptime}
+│ 🛠️ *DEV:* 𝐖𝐞𝐞𝐝
+*╰──────────────⭐*
 
-   👤 *USER:* @${senderName}
-   ⌨️ *PREFIX:* .
-   📊 *COMMANDS:* ${totalCommands}
-   ⏳ *UPTIME:* ${uptime}
-   🛠️ *DEV:* WEEDTECH
+*📜 COMMAND LIST:*
 
-*──────────────────────*
-
-*🤖 BOT INFO*
+*┣━〔 🤖 BOT INFO 〕*
 ┃ 🚀 .ping
 ┃ 📡 .alive
 ┃ 📜 .menu
 ┃ 👤 .owner
 ┃ ⏳ .runtime
+┃ 📊 .status
+┃ 🖥️ .system
 
-*🛠️ TOOLS*
+*┣━〔 🛠 TOOLS 〕*
 ┃ ✍️ .say
 ┃ 🕒 .time
 ┃ 📅 .date
 ┃ 🆔 .jid
 ┃ 🔄 .restart
+┃ 🔍 .search
+┃ 🎥 .ytmp4
+┃ 🎵 .ytmp3
+┃ 📸 .igdl
+┃ 🐦 .twitter
+┃ 🌐 .translate
 
-*👮 GWOUP ADMIN*
+*┣━〔 👮 GROUP ADMIN 〕*
 ┃ 🔨 .kick
 ┃ ➕ .add
 ┃ ⬆️ .promote
 ┃ ⬇️ .demote
 ┃ 🧹 .delete
 ┃ 📢 .tagall
+┃ 🔓 .open
+┃ 🔒 .close
+┃ 🔗 .link
+┃ 🚫 .hidetag
 
-*⚙️ REGLAJ*
+*┣━〔 ⚙️ SETTINGS 〕*
 ┃ 🔧 .setprefix
 ┃ 🖼️ .setpp
 ┃ 🆘 .help
 ┃ 💬 .echo
+┃ 🔔 .welcome
+┃ 🔕 .goodbye
 
-*──────────────────────*
-      *© 2026 QUEEN COLAMBIA*
+*© 2026 QUEEN COLAMBIA*
     `.trim();
 
-    try {
-        await sock.sendMessage(remoteJid, { 
-            image: { url: imageUrl }, 
-            caption: menu,
-            mentions: [sender], // Sèvi ak varyab sekirite a
-            contextInfo: {
-                externalAdReply: {
-                    title: "QUEEN COLAMBIA OFFICIAL",
-                    body: "Powered by WeedTech",
-                    thumbnailUrl: imageUrl,
-                    sourceUrl: channelUrl,
-                    mediaType: 1,
-                    renderLargerThumbnail: false
-                }
+    await sock.sendMessage(m.key.remoteJid, {
+        image: { url: "https://files.catbox.moe/3dwe96.jpg" }, 
+        caption: menu,
+        mentions: [sender], 
+        contextInfo: {
+            externalAdReply: {
+                title: "QUEEN COLAMBIA OFFICIAL",
+                body: "Join our channel for updates",
+                thumbnailUrl: "https://files.catbox.moe/3dwe96.jpg",
+                sourceUrl: "https://whatsapp.com/channel/0029Vb2J9C91dAw7vxA75y2V", 
+                mediaType: 1,
+                renderLargerThumbnail: false
             }
-        }, { quoted: m });
-    } catch (e) {
-        console.error("Erè nan voye menu: ", e);
-    }
-}
+        }
+    }, { quoted: m });
+};
