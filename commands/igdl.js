@@ -2,42 +2,43 @@ module.exports = async (sock, m, args) => {
     const from = m.key.remoteJid;
     const url = args[0];
 
+    // Check for valid Instagram link
     if (!url || !url.includes('instagram.com')) {
-        return sock.sendMessage(from, { text: "🔗 Tanpri mete yon lyen Instagram valid (Reels oswa Post)." }, { quoted: m });
+        return sock.sendMessage(from, { 
+            text: "亗 *QUEEN COLAMBIA* 亗\n\n❌ *Error:* Please provide a valid Instagram link.\n💡 *Usage:* .ig [link]" 
+        }, { quoted: m });
     }
 
-    // Reaction ⏳
+    // Reaction to show processing
     await sock.sendMessage(from, { react: { text: "⏳", key: m.key } });
 
     try {
-        // API David Cyril pou Instagram (itilize fetch kounye a)
-        const apiUrl = `https://apis.davidcyriltech.my.id/download/igdl?url=${encodeURIComponent(url)}`;
-        
-        const response = await fetch(apiUrl);
+        // Fetching from a stable API
+        const response = await fetch(`https://api.vreden.my.id/api/igdl?url=${encodeURIComponent(url)}`);
         const res = await response.json();
-        
-        // David Cyril API konn voye yon lis (Array) paske yon pòs ka gen plizyè videyo
-        const result = res.result; 
 
-        if (!result || !Array.isArray(result) || result.length === 0) {
-            await sock.sendMessage(from, { react: { text: "❌", key: m.key } });
-            return sock.sendMessage(from, { text: "❌ Mwen pa jwenn okenn medya nan lyen sa a." });
+        if (res.result && res.result[0]) {
+            const caption = 
+                `┏━━━━━━━━━━━━━━━━━━┓\n` +
+                `┃   📸  *INSTAGRAM DOWNLOAD* \n` +
+                `┠━━━━━━━━━━━━━━━━━━┫\n` +
+                `┃ ✅ *Status:* Success\n` +
+                `┃ 👑 *Bot:* QUEEN COLAMBIA\n` +
+                `┗━━━━━━━━━━━━━━━━━━┛`;
+
+            await sock.sendMessage(from, { 
+                video: { url: res.result[0].url }, 
+                caption: caption 
+            }, { quoted: m });
+
+            await sock.sendMessage(from, { react: { text: "✅", key: m.key } });
+        } else {
+            throw new Error("No media found");
         }
-
-        // Nou voye premye videyo/foto li jwenn nan lis la
-        const mediaUrl = result[0].url || result[0].download_url;
-
-        await sock.sendMessage(from, { 
-            video: { url: mediaUrl }, 
-            caption: `👑 *QUEEN COLAMBIA*\n\n✅ Men Instagram ou a!` 
-        }, { quoted: m });
-
-        // Reaction ✅
-        await sock.sendMessage(from, { react: { text: "✅", key: m.key } });
-
     } catch (e) {
-        console.error("IGDL Error:", e);
         await sock.sendMessage(from, { react: { text: "❌", key: m.key } });
-        sock.sendMessage(from, { text: "❌ Yon erè rive pandan m t ap telechaje sa a. API a ka desann." });
+        await sock.sendMessage(from, { 
+            text: "❌ *Error:* Failed to download. The link might be private or the API is down." 
+        }, { quoted: m });
     }
-}
+};
