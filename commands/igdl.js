@@ -1,5 +1,3 @@
-const axios = require('axios');
-
 module.exports = async (sock, m, args) => {
     const from = m.key.remoteJid;
     const url = args[0];
@@ -12,14 +10,17 @@ module.exports = async (sock, m, args) => {
     await sock.sendMessage(from, { react: { text: "⏳", key: m.key } });
 
     try {
-        // API David Cyril pou Instagram
+        // API David Cyril pou Instagram (itilize fetch kounye a)
         const apiUrl = `https://apis.davidcyriltech.my.id/download/igdl?url=${encodeURIComponent(url)}`;
-        const res = await axios.get(apiUrl);
+        
+        const response = await fetch(apiUrl);
+        const res = await response.json();
         
         // David Cyril API konn voye yon lis (Array) paske yon pòs ka gen plizyè videyo
-        const result = res.data.result; 
+        const result = res.result; 
 
-        if (!result || result.length === 0) {
+        if (!result || !Array.isArray(result) || result.length === 0) {
+            await sock.sendMessage(from, { react: { text: "❌", key: m.key } });
             return sock.sendMessage(from, { text: "❌ Mwen pa jwenn okenn medya nan lyen sa a." });
         }
 
@@ -36,6 +37,7 @@ module.exports = async (sock, m, args) => {
 
     } catch (e) {
         console.error("IGDL Error:", e);
-        sock.sendMessage(from, { text: "❌ Erè rive pandan m t ap telechaje sa a." });
+        await sock.sendMessage(from, { react: { text: "❌", key: m.key } });
+        sock.sendMessage(from, { text: "❌ Yon erè rive pandan m t ap telechaje sa a. API a ka desann." });
     }
 }
