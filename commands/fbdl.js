@@ -1,5 +1,3 @@
-const axios = require("axios");
-
 // Fonksyon itil
 function isUrl(u) {
   return typeof u === "string" && /^https?:\/\/\S+/i.test(u.trim());
@@ -11,26 +9,29 @@ function cleanUrl(u) {
 }
 
 async function getJson(url) {
-  return axios.get(url, {
-    timeout: 25000,
+  const response = await fetch(url, {
+    method: 'GET',
     headers: {
-      accept: "application/json, text/plain, */*",
-      "user-agent": "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Chrome/120 Safari/537.36",
-    },
-    validateStatus: () => true,
+      'accept': 'application/json, text/plain, */*',
+      'user-agent': 'Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Chrome/120 Safari/537.36',
+    }
   });
+  const data = await response.json();
+  return { status: response.status, data: data };
 }
 
 async function fetchThumbAsBuffer(url) {
   try {
-    const r = await axios.get(url, {
-      responseType: "arraybuffer",
-      timeout: 15000,
-      headers: { "user-agent": "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Chrome/120 Safari/537.36" },
-      validateStatus: () => true,
+    const response = await fetch(url, {
+      headers: { 'user-agent': 'Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Chrome/120 Safari/537.36' }
     });
-    if (r.status >= 200 && r.status < 300 && r.data) return Buffer.from(r.data);
-  } catch {}
+    if (response.ok) {
+      const arrayBuffer = await response.arrayBuffer();
+      return Buffer.from(arrayBuffer);
+    }
+  } catch (e) {
+    console.log("Erè thumbnail:", e);
+  }
   return undefined;
 }
 
@@ -45,7 +46,6 @@ module.exports = async (sock, m, args) => {
     }, { quoted: m });
   }
 
-  // Chèk si se yon lyen Facebook
   const lower = url.toLowerCase();
   if (!lower.includes("facebook.com") && !lower.includes("fb.watch")) {
     return await sock.sendMessage(chatId, { text: "❌ Sa a se pa yon lyen Facebook valid." }, { quoted: m });
@@ -85,7 +85,6 @@ module.exports = async (sock, m, args) => {
       `┃ 👑 Bot: QUEEN COLAMBIA\n` +
       `╰━━━━━━━━━━━━━━━━━━━━╯`;
 
-    // Voye videyo a
     let thumbBuffer = thumb ? await fetchThumbAsBuffer(thumb) : undefined;
     
     await sock.sendMessage(chatId, {
@@ -95,7 +94,6 @@ module.exports = async (sock, m, args) => {
       jpegThumbnail: thumbBuffer
     }, { quoted: m });
 
-    // Reyaksyon OK
     await sock.sendMessage(chatId, { react: { text: "✅", key: m.key } });
 
   } catch (e) {
@@ -104,3 +102,4 @@ module.exports = async (sock, m, args) => {
     await sock.sendMessage(chatId, { text: "❌ Yon erè rive. Eseye ankò pita." }, { quoted: m });
   }
 };
+
