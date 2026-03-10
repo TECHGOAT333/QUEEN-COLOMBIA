@@ -15,7 +15,7 @@ async function startBot() {
         browser: ["Ubuntu", "Chrome", "20.0.04"]
     })
 
-    // 📂 Sistèm pou chaje kòmand yo
+    // 📂 Chaje kòmand yo nan folder commands la
     const commands = {}
     const commandsPath = path.join(__dirname, "commands")
 
@@ -34,30 +34,33 @@ async function startBot() {
     sock.ev.on("connection.update", (update) => {
         const { connection } = update
         if (connection === "close") startBot()
-        if (connection === "open") console.log("🎊 BOT LA PRÈ POU TRAVAY! ✅")
+        if (connection === "open") console.log("🎊 QUEEN COLAMBIA BOT PRÈ POU TRAVAY! ✅")
     })
 
-    // 📩 Pati k ap li kòmand ou voye yo
-    sock.ev.on("messages.upsert", async ({ messages }) => {
+    // 📩 Pati k ap koute mesaj pou bot la ka reponn
+    sock.ev.on("messages.upsert", async ({ messages, type }) => {
+        if (type !== 'notify') return
         const m = messages[0]
-        if (!m.message || m.key.fromMe) return
+        if (!m.message) return
 
-        const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+        // Li mesaj la menm si se ou ki voye l ba tèt ou
+        const text = m.message.conversation || m.message.extendedTextMessage?.text || m.message.imageMessage?.caption || ""
         const from = m.key.remoteJid
+        
+        console.log(`📩 Mesaj resevwa: ${text}`) // W ap wè sa nan bwat nwa a
+
         const prefix = settings.prefix || "."
+        if (!text.startsWith(prefix)) return
 
-        // Si mesaj la kòmanse ak pwen (.)
-        if (text.startsWith(prefix)) {
-            const args = text.slice(prefix.length).trim().split(/ +/)
-            const commandName = args.shift().toLowerCase()
+        const args = text.slice(prefix.length).trim().split(/ +/)
+        const commandName = args.shift().toLowerCase()
 
-            if (commands[commandName]) {
-                try {
-                    console.log(`🏃 Egzekite: ${commandName}`)
-                    await commands[commandName](sock, m, args)
-                } catch (err) {
-                    console.error("Erè:", err)
-                }
+        if (commands[commandName]) {
+            try {
+                console.log(`🏃 Egzekite: ${commandName}`)
+                await commands[commandName](sock, m, args)
+            } catch (err) {
+                console.error("❌ Erè nan kòmand:", err)
             }
         }
     })
