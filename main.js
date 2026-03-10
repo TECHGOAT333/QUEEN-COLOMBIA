@@ -2,7 +2,8 @@ const {
     default: makeWASocket, 
     useMultiFileAuthState, 
     fetchLatestBaileysVersion, 
-    DisconnectReason
+    DisconnectReason,
+    Browsers
 } = require("@whiskeysockets/baileys")
 const pino = require("pino")
 const fs = require("fs")
@@ -10,19 +11,20 @@ const http = require("http")
 const path = require("path") 
 const settings = require("./settings")
 
-// --- SMART UPTIME SERVER ---
+// --- SMART UPTIME SERVER (POU EVITE EADDRINUSE) ---
 const startServer = (port) => {
     const server = http.createServer((req, res) => {
         res.writeHead(200);
         res.end('QUEEN COLAMBIA IS ONLINE');
     });
-    server.listen(port);
+    server.listen(port).on('error', () => { /* Silansye si pò a okipe */ });
 };
 startServer(process.env.PORT || 3000);
 
 let isPublic = true; 
 
 async function startBot() {
+    // Sèvi ak sesyon ki egziste deja nan folder "session" la
     const { state, saveCreds } = await useMultiFileAuthState("session")
     const { version } = await fetchLatestBaileysVersion()
 
@@ -30,42 +32,38 @@ async function startBot() {
         version,
         logger: pino({ level: "silent" }),
         auth: state,
-        browser: ["Ubuntu", "Chrome", "20.0.04"],
-        printQRInTerminal: false
+        browser: Browsers.macOS("Desktop"),
+        printQRInTerminal: true // Si sesyon an mouri, l ap bay QR code olye pairing
     })
-
-    if (!sock.authState.creds.registered) {
-        const ownerPhone = settings.ownerNumber.replace(/[^0-9]/g, '')
-        setTimeout(async () => {
-            try {
-                let code = await sock.requestPairingCode(ownerPhone)
-                code = code?.match(/.{1,4}/g)?.join("-") || code
-                console.log(`\n✅ KÒD PAIRING: ${code}\n`)
-            } catch (err) { console.log(err) }
-        }, 5000)
-    }
 
     sock.ev.on("creds.update", saveCreds)
 
     sock.ev.on("connection.update", async (update) => {
         const { connection, lastDisconnect } = update
         if (connection === "close") {
-            if (lastDisconnect.error?.output?.statusCode !== DisconnectReason.loggedOut) startBot()
+            const shouldReconnect = lastDisconnect.error?.output?.statusCode !== DisconnectReason.loggedOut
+            if (shouldReconnect) startBot()
         } else if (connection === "open") {
             const ownerJid = settings.ownerNumber.replace(/[^0-9]/g, '') + "@s.whatsapp.net"
             console.log(`\n🎊 QUEEN COLAMBIA CONNECTED!`)
-            await sock.sendMessage(ownerJid, { text: `✅ *QUEEN COLAMBIA IS ONLINE*\n\n⚙️ *Prefix:* [ ${settings.prefix || "."} ]\n📢 *Mode:* ${isPublic ? 'Public' : 'Private'}` })
+            
+            // Voye notifikasyon ONLINE bay Owner la sèlman
+            await sock.sendMessage(ownerJid, { 
+                text: `✅ *QUEEN COLAMBIA IS ONLINE*\n\n⚙️ *Prefix:* [ ${settings.prefix || "."} ]\n📢 *Mode:* ${isPublic ? 'Public' : 'Private'}` 
+            })
         }
     })
 
-    // 📂 Chaje kòmand yo
+    // 📂 Auto-load commands
     const commands = {}
     const commandsPath = path.join(__dirname, "commands")
     if (fs.existsSync(commandsPath)) {
         fs.readdirSync(commandsPath).forEach(file => {
             if (file.endsWith(".js")) {
-                const cmd = require(path.join(commandsPath, file))
-                commands[file.replace(".js", "")] = cmd
+                try {
+                    const cmd = require(path.join(commandsPath, file))
+                    commands[file.replace(".js", "")] = cmd
+                } catch (e) { console.log(`❌ Error: ${file}`, e.message) }
             }
         })
     }
@@ -78,9 +76,11 @@ async function startBot() {
         const from = m.key.remoteJid
         const sender = m.key.participant || m.key.remoteJid
         const ownerNum = settings.ownerNumber.replace(/[^0-9]/g, '')
-        const isOwner = sender.includes(ownerNum) || m.key.fromMe // Sa a pèmèt li reponn ou menm si se ou k ekri l
         
-        const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+        // Verifikasyon si se Owner la (ki gen ladan l si se bot la k ap pale ak tèt li)
+        const isOwner = sender.includes(ownerNum) || m.key.fromMe
+        
+        const text = (m.message.conversation || m.message.extendedTextMessage?.text || "").trim()
         const prefix = settings.prefix || "."
 
         if (!text.startsWith(prefix)) return
@@ -89,7 +89,7 @@ async function startBot() {
         const args = text.slice(prefix.length).trim().split(/ +/)
         const commandName = args.shift().toLowerCase()
 
-        // Kòmand Mode
+        // Kòmand entèn pou chanje Mode
         if (commandName === "public" && isOwner) {
             isPublic = true
             return sock.sendMessage(from, { text: "✅ Mode: *PUBLIC*" })
@@ -99,18 +99,20 @@ async function startBot() {
             return sock.sendMessage(from, { text: "🔒 Mode: *PRIVATE*" })
         }
 
-        // EGZEKITE KÒMAND LAN
+        // Test rapid pou verifye si bot la "active"
+        if (commandName === "ping") {
+            return sock.sendMessage(from, { text: "Pong! 🏓" }, { quoted: m })
+        }
+
+        // Egzekite kòmand ki nan folder commands la
         if (commands[commandName]) {
             try {
                 await commands[commandName](sock, m, args)
             } catch (err) {
-                console.log(err)
+                console.log(`❌ Erè nan ${commandName}:`, err)
             }
-        } else if (isOwner && commandName === "ping") {
-            // Test rapid si kòmand file yo pa mache
-            await sock.sendMessage(from, { text: "Pong! 🏓 Bot la ap reponn kounye a." })
         }
     })
 }
 
-startBot().catch(err => console.log(err))
+startBot().catch(err => console.log("Erè fatal:", err))
