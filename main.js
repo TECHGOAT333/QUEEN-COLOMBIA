@@ -3,15 +3,20 @@ const {
     useMultiFileAuthState, 
     fetchLatestBaileysVersion, 
     DisconnectReason,
-    downloadContentFromMessage,
-    jidDecode
+    downloadContentFromMessage
 } = require("@whiskeysockets/baileys")
 const pino = require("pino")
 const fs = require("fs")
 const path = require("path")
+const http = require("http") // Sa a pa bezwen npm install
 const settings = require("./settings")
 
-// --- MODE CONFIGURATION ---
+// --- SIMPLE UPTIME SERVER (No Express Needed) ---
+http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/html' });
+    res.end('<h1>QUEEN COLAMBIA IS ONLINE</h1>');
+}).listen(process.env.PORT || 3000);
+
 let isPublic = true; 
 
 async function startBot() {
@@ -36,15 +41,13 @@ async function startBot() {
                 try {
                     const cmd = require(path.join(commandsPath, file))
                     commands[file.replace(".js", "")] = cmd
-                } catch (e) {
-                    console.log(`❌ Error loading ${file}:`, e.message)
-                }
+                } catch (e) { console.log(`❌ Error loading ${file}:`, e.message) }
             }
         })
         console.log(`✅ ${Object.keys(commands).length} Commands Loaded!`)
     }
 
-    // --- PAIRING CODE POU OWNER ---
+    // --- PAIRING CODE ---
     const ownerPhone = settings.ownerNumber.replace(/[^0-9]/g, '') 
     if (!sock.authState.creds.registered) {
         console.log(`\n🔄 Generating pairing code for Owner: ${ownerPhone}...`)
@@ -58,20 +61,6 @@ async function startBot() {
     }
 
     sock.ev.on("creds.update", saveCreds)
-
-    // --- WELCOME & GOODBYE ---
-    sock.ev.on("group-participants.update", async (anu) => {
-        const metadata = await sock.groupMetadata(anu.id)
-        for (let num of anu.participants) {
-            let ppuser;
-            try { ppuser = await sock.profilePictureUrl(num, 'image') } catch { ppuser = 'https://files.catbox.moe/3dwe96.jpg' }
-            if (anu.action == 'add') {
-                sock.sendMessage(anu.id, { image: { url: ppuser }, caption: `👋 Welcome @${num.split("@")[0]} to ${metadata.subject}!\n\nType .menu to see what I can do.`, mentions: [num] })
-            } else if (anu.action == 'remove') {
-                sock.sendMessage(anu.id, { text: `🚫 @${num.split("@")[0]} has left the group. Goodbye!`, mentions: [num] })
-            }
-        }
-    })
 
     sock.ev.on("connection.update", (update) => {
         const { connection, lastDisconnect } = update
@@ -89,7 +78,6 @@ async function startBot() {
         const from = m.key.remoteJid
         const sender = m.key.participant || m.key.remoteJid
         
-        // Netwaye nimewo mèt la pou konparezon
         const cleanOwner = settings.ownerNumber.replace(/[^0-9]/g, '')
         const cleanSender = sender.split('@')[0].replace(/[^0-9]/g, '')
         const isOwner = cleanOwner === cleanSender
@@ -98,7 +86,6 @@ async function startBot() {
 
         const text = m.message.conversation || m.message.extendedTextMessage?.text || m.message.imageMessage?.caption || ""
         
-        // --- AUTO STATUS VIEW ---
         if (from === 'status@broadcast') {
             await sock.readMessages([m.key])
             await sock.sendMessage('status@broadcast', { react: { text: '👑', key: m.key } }, { statusJidList: [m.key.participant] })
@@ -111,33 +98,17 @@ async function startBot() {
         const args = text.slice(prefix.length).trim().split(/ +/)
         const commandName = args.shift().toLowerCase()
 
-        // --- KÒMAND .PAIR ---
-        if (commandName === "pair") {
-            const targetNum = args[0]?.replace(/[^0-9]/g, '')
-            if (!targetNum) return sock.sendMessage(from, { text: "❌ Please provide a phone number.\nExample: *.pair 50948247470*" }, { quoted: m })
-            await sock.sendMessage(from, { react: { text: "⏳", key: m.key } })
-            try {
-                let code = await sock.requestPairingCode(targetNum)
-                code = code?.match(/.{1,4}/g)?.join("-") || code
-                const pairMsg = `┏━━━━━━━━━━━━━━━━━━┓\n┃   🔑  *PAIRING CODE* \n┠━━━━━━━━━━━━━━━━━━┫\n┃ 📱 *Number:* ${targetNum}\n┃ 🔢 *Code:* ${code}\n┠━━━━━━━━━━━━━━━━━━┫\n┃ _Enter this code on your_\n┃ _WhatsApp to connect!_\n┗━━━━━━━━━━━━━━━━━━┛`
-                await sock.sendMessage(from, { text: pairMsg }, { quoted: m })
-            } catch (e) {
-                await sock.sendMessage(from, { text: "❌ Error: Could not generate code." }, { quoted: m })
-            }
-            return
-        }
-
-        // --- MODE LOGIC ---
+        // --- PUBLIC/PRIVATE NOTIFICATIONS (ENGLISH) ---
         if (commandName === "public" || (commandName === "mode" && args[0] === "public")) {
-            if (!isOwner) return sock.sendMessage(from, { text: "❌ Only my Owner can use this command." })
+            if (!isOwner) return sock.sendMessage(from, { text: "❌ Access Denied: Owner Only." })
             isPublic = true
-            return sock.sendMessage(from, { text: "✅ Bot is now in *PUBLIC* mode." })
+            return sock.sendMessage(from, { text: "✅ *QUEEN COLAMBIA*\n\nBot is now in *PUBLIC* mode." })
         }
         
         if (commandName === "private" || (commandName === "mode" && args[0] === "private")) {
-            if (!isOwner) return sock.sendMessage(from, { text: "❌ Only my Owner can use this command." })
+            if (!isOwner) return sock.sendMessage(from, { text: "❌ Access Denied: Owner Only." })
             isPublic = false
-            return sock.sendMessage(from, { text: "🔒 Bot is now in *PRIVATE* mode." })
+            return sock.sendMessage(from, { text: "🔒 *QUEEN COLAMBIA*\n\nBot is now in *PRIVATE* mode." })
         }
 
         // --- ALIAS SYSTEM ---
@@ -153,9 +124,7 @@ async function startBot() {
                 await sock.sendPresenceUpdate('composing', from)
                 await sock.sendMessage(from, { react: { text: "⚡", key: m.key } })
                 await commands[cmdToRun](sock, m, args)
-            } catch (err) { 
-                console.error("Command Error:", err)
-            }
+            } catch (err) { console.error("Command Error:", err) }
         }
     })
 }
