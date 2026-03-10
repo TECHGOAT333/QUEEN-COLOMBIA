@@ -1,9 +1,10 @@
 const { default: makeWASocket, useMultiFileAuthState, fetchLatestBaileysVersion } = require("@whiskeysockets/baileys")
 const pino = require("pino")
+const fs = require("fs")
+const path = require("path")
 const settings = require("./settings")
 
 async function startBot() {
-    // 1. Prepare sesyon an
     const { state, saveCreds } = await useMultiFileAuthState("session")
     const { version } = await fetchLatestBaileysVersion()
 
@@ -11,42 +12,55 @@ async function startBot() {
         version,
         logger: pino({ level: "silent" }),
         auth: state,
-        // Konfigirasyon ki pi stab pou Pairing nan 2026
         browser: ["Ubuntu", "Chrome", "20.0.04"]
     })
 
-    // --- SISTÈM PAIRING CODE ---
-    // Li pran nimewo a dirèkteman nan settings.js ou a
-    const phoneNumber = settings.ownerNumber.replace(/[^0-9]/g, '') 
+    // 📂 Sistèm pou chaje kòmand yo
+    const commands = {}
+    const commandsPath = path.join(__dirname, "commands")
 
-    if (!sock.authState.creds.registered) {
-        console.log(`\n🤖 BOT: ${settings.botName}`)
-        console.log(`🔄 Ap prepare kòd pou: ${phoneNumber}...`)
-        
-        setTimeout(async () => {
-            try {
-                let code = await sock.requestPairingCode(phoneNumber)
-                code = code?.match(/.{1,4}/g)?.join("-") || code
-                console.log(`\n====================================`)
-                console.log(`✅ KÒD KONEKSYON OU SE: ${code}`)
-                console.log(`====================================\n`)
-            } catch (err) {
-                console.log("❌ Erè: Nimewo a pa kòrèk oswa limit depase.")
+    if (fs.existsSync(commandsPath)) {
+        fs.readdirSync(commandsPath).forEach(file => {
+            if (file.endsWith(".js")) {
+                const cmd = require(path.join(commandsPath, file))
+                commands[file.replace(".js", "")] = cmd
+                console.log(`✅ Kòmand chaje: ${file}`)
             }
-        }, 5000) 
+        })
     }
 
     sock.ev.on("creds.update", saveCreds)
 
     sock.ev.on("connection.update", (update) => {
         const { connection } = update
-        if (connection === "close") {
-            startBot()
-        } else if (connection === "open") {
-            console.log(`\n🎊 ${settings.botName} KONEKTE AVÈK SIKSÈ! ✅`)
+        if (connection === "close") startBot()
+        if (connection === "open") console.log("🎊 BOT LA PRÈ POU TRAVAY! ✅")
+    })
+
+    // 📩 Pati k ap li kòmand ou voye yo
+    sock.ev.on("messages.upsert", async ({ messages }) => {
+        const m = messages[0]
+        if (!m.message || m.key.fromMe) return
+
+        const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+        const from = m.key.remoteJid
+        const prefix = settings.prefix || "."
+
+        // Si mesaj la kòmanse ak pwen (.)
+        if (text.startsWith(prefix)) {
+            const args = text.slice(prefix.length).trim().split(/ +/)
+            const commandName = args.shift().toLowerCase()
+
+            if (commands[commandName]) {
+                try {
+                    console.log(`🏃 Egzekite: ${commandName}`)
+                    await commands[commandName](sock, m, args)
+                } catch (err) {
+                    console.error("Erè:", err)
+                }
+            }
         }
     })
 }
 
 startBot()
-
