@@ -28,7 +28,7 @@ async function startBot(){
     })
 
     // --- PAIRING CODE (CHIF YO) ---
-    const phoneNumber = "50934410653" 
+    const phoneNumber = "18093585751" 
 
     if (!sock.authState.creds.registered) {
         console.log("Ap prepare kòd koneksyon an...")
