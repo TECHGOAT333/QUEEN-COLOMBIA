@@ -1,17 +1,17 @@
 module.exports = async (sock, m) => {
-    // Nimewo WeedDev dirèkteman
+    // WeedDev direct contact info
     const ownerNumber = "50939032060"; 
     const devName = "WeedDev"; 
 
-    // 1. Kreye fòma VCard (Kat Vizit) la
+    // 1. Create the VCard (Contact Card) format
     const vcard = 'BEGIN:VCARD\n'
         + 'VERSION:3.0\n' 
         + `FN:${devName}\n` 
-        + `ORG:Queen Colambia Bot;\n`
+        + `ORG:Queen Colambia Bot Developer;\n`
         + `TEL;type=CELL;type=VOICE;waid=${ownerNumber}:+${ownerNumber}\n`
         + 'END:VCARD';
 
-    // 2. Voye Kat Vizit la (VCard)
+    // 2. Send the Contact Card (VCard)
     await sock.sendMessage(
         m.key.remoteJid,
         { 
@@ -23,21 +23,23 @@ module.exports = async (sock, m) => {
         { quoted: m }
     );
 
-    // 3. Mesaj enfòmasyon an modèn epi klè
+    // 3. Professional Information Message
     const ownerMessage = `
 *╭───〔 👑 OWNER INFO 〕───⭐*
 │
 │ 👤 *Developer:* ${devName}
-│ 📱 *Contact:* wa.me/${ownerNumber}
+│ 📱 *WhatsApp:* wa.me/${ownerNumber}
 │ 🤖 *Bot:* QUEEN COLAMBIA
 │
 *╰──────────────⭐*
 
-_Klike sou kat la pou sove kontak mwen, oswa sou lyen an pou ekri m._
+_Click the card above to save my contact, or use the link to message me directly._
     `.trim();
 
     await sock.sendMessage(m.key.remoteJid, { 
         text: ownerMessage,
-        mentions: [ownerNumber + '@s.whatsapp.net'] 
+        contextInfo: {
+            mentionedJid: [ownerNumber + '@s.whatsapp.net']
+        }
     }, { quoted: m });
 }
