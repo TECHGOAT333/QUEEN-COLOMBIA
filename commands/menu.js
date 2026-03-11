@@ -1,9 +1,13 @@
 module.exports = async (sock, m) => {
-    // 1. Sekirite pou sender (Pou evite erè 'split' la)
+    // 1. Security and Dynamic Prefix Detection
     const sender = m.sender || m.key.participant || m.key.remoteJid || "";
     const pushName = sender.split('@')[0] || "User";
 
-    // 2. Fonksyon Runtime
+    /* This detects the prefix you used to call the menu (e.g., if you type #menu, prefix becomes #) */
+    const text = m.body || "";
+    const prefix = text.charAt(0); 
+
+    // 2. Runtime Function
     function runtime(seconds) {
         seconds = Number(seconds);
         var d = Math.floor(seconds / (3600 * 24));
@@ -19,7 +23,7 @@ module.exports = async (sock, m) => {
     const menu = `
 *╭───〔 👑 QUEEN COLAMBIA 〕───⭐*
 │ 👤 *USER:* @${pushName}
-│ ⌨️ *PREFIX:* .
+│ ⌨️ *PREFIX:* ${prefix}
 │ 📊 *COMMANDS:* ${totalCommands}
 │ ⏳ *UPTIME:* ${uptime}
 │ 🛠️ *DEV:* 𝐖𝐞𝐞𝐝
@@ -28,46 +32,46 @@ module.exports = async (sock, m) => {
 *📜 COMMAND LIST:*
 
 *┣━〔 🤖 BOT INFO 〕*
-┃ 🚀 .ping
-┃ 📡 .alive
-┃ 📜 .menu
-┃ 👤 .owner
-┃ ⏳ .runtime
-┃ 📊 .status
-┃ 🖥️ .system
+┃ 🚀 ${prefix}ping
+┃ 📡 ${prefix}alive
+┃ 📜 ${prefix}menu
+┃ 👤 ${prefix}owner
+┃ ⏳ ${prefix}runtime
+┃ 📊 ${prefix}status
+┃ 🖥️ ${prefix}system
 
 *┣━〔 🛠 TOOLS 〕*
-┃ ✍️ .say
-┃ 🕒 .time
-┃ 📅 .date
-┃ 🆔 .jid
-┃ 🔄 .restart
-┃ 🔍 .search
-┃ 🎥 .ytmp4
-┃ 🎵 .ytmp3
-┃ 📸 .igdl
-┃ 🐦 .twitter
-┃ 🌐 .translate
+┃ ✍️ ${prefix}say
+┃ 🕒 ${prefix}time
+┃ 📅 ${prefix}date
+┃ 🆔 ${prefix}jid
+┃ 🔄 ${prefix}restart
+┃ 🔍 ${prefix}search
+┃ 🎥 ${prefix}ytmp4
+┃ 🎵 ${prefix}ytmp3
+┃ 📸 ${prefix}igdl
+┃ 🐦 ${prefix}twitter
+┃ 🌐 ${prefix}translate
 
 *┣━〔 👮 GROUP ADMIN 〕*
-┃ 🔨 .kick
-┃ ➕ .add
-┃ ⬆️ .promote
-┃ ⬇️ .demote
-┃ 🧹 .delete
-┃ 📢 .tagall
-┃ 🔓 .open
-┃ 🔒 .close
-┃ 🔗 .link
-┃ 🚫 .hidetag
+┃ 🔨 ${prefix}kick
+┃ ➕ ${prefix}add
+┃ ⬆️ ${prefix}promote
+┃ ⬇️ ${prefix}demote
+┃ 🧹 ${prefix}delete
+┃ 📢 ${prefix}tagall
+┃ 🔓 ${prefix}open
+┃ 🔒 ${prefix}close
+┃ 🔗 ${prefix}link
+┃ 🚫 ${prefix}hidetag
 
 *┣━〔 ⚙️ SETTINGS 〕*
-┃ 🔧 .setprefix
-┃ 🖼️ .setpp
-┃ 🆘 .help
-┃ 💬 .echo
-┃ 🔔 .welcome
-┃ 🔕 .goodbye
+┃ 🔧 ${prefix}setprefix
+┃ 🖼️ ${prefix}setpp
+┃ 🆘 ${prefix}help
+┃ 💬 ${prefix}echo
+┃ 🔔 ${prefix}welcome
+┃ 🔕 ${prefix}goodbye
 
 *© 2026 QUEEN COLAMBIA*
     `.trim();
