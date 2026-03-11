@@ -1,35 +1,35 @@
+const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 
-const { downloadContentFromMessage } = require("@whiskeysockets/baileys");
-
-module.exports = async (sock, m) => {
+async function viewonceCommand(sock, m) {
     const chatId = m.key.remoteJid;
 
     try {
-        // 1. Check if the user replied to a message
+        // 1. Identify the quoted message
         const quoted = m.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+        
         if (!quoted) {
             return await sock.sendMessage(chatId, { 
-                text: "❓ *Usage:* Please reply to a **View Once** photo or video." 
+                text: '❌ *Usage:* Please reply to a **View Once** image or video.' 
             }, { quoted: m });
         }
 
-        // 2. Identify the View Once layer (V1, V2, or direct)
+        // 2. Extract content from View Once layers (V2 is the most common now)
         const viewOnce = quoted.viewOnceMessageV2 || quoted.viewOnceMessage || quoted;
-        
-        // 3. Extract the actual media content
         const messageContent = viewOnce.message || viewOnce;
+        
+        // Detect media type
         const type = Object.keys(messageContent)[0];
 
-        // Validate if it is an image or video
-        if (!type.includes('imageMessage') && !type.includes('videoMessage')) {
+        if (!type || (!type.includes('imageMessage') && !type.includes('videoMessage'))) {
             return await sock.sendMessage(chatId, { 
-                text: "❌ *Error:* This message does not contain a View Once image or video." 
+                text: '❌ *Error:* This is not a View Once media file.' 
             }, { quoted: m });
         }
 
-        // 4. Add a loading reaction
+        // 3. Add a processing reaction
         await sock.sendMessage(chatId, { react: { text: "⏳", key: m.key } });
 
+        // 4. Download the media stream
         const media = messageContent[type];
         const stream = await downloadContentFromMessage(
             media, 
@@ -43,20 +43,30 @@ module.exports = async (sock, m) => {
 
         const caption = `👁️ *VIEW ONCE RECOVERED*\n👑 *QUEEN COLAMBIA V3*`;
 
-        // 5. Send back the recovered media
+        // 5. Send the recovered file back
         if (type.includes('image')) {
-            await sock.sendMessage(chatId, { image: buffer, caption: caption }, { quoted: m });
+            await sock.sendMessage(chatId, { 
+                image: buffer, 
+                caption: caption 
+            }, { quoted: m });
         } else if (type.includes('video')) {
-            await sock.sendMessage(chatId, { video: buffer, caption: caption }, { quoted: m });
+            await sock.sendMessage(chatId, { 
+                video: buffer, 
+                caption: caption, 
+                mimetype: 'video/mp4' 
+            }, { quoted: m });
         }
 
+        // 6. Final success reaction
         await sock.sendMessage(chatId, { react: { text: "✅", key: m.key } });
 
     } catch (e) {
-        console.error("VV Recovery Error:", e);
+        console.error("View Once Recovery Error:", e);
         await sock.sendMessage(chatId, { react: { text: "❌", key: m.key } });
         await sock.sendMessage(chatId, { 
-            text: "⚠️ *System Error:* Failed to fetch media. The file may have expired or was already processed." 
+            text: '⚠️ *System Error:* Failed to download the media. It might have expired.' 
         }, { quoted: m });
     }
-};
+}
+
+module.exports = viewonceCommand;
