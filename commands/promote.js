@@ -1,37 +1,36 @@
-
 module.exports = async (sock, m) => {
     const chatJid = m.key.remoteJid;
 
-    // 1. Tcheke si se nan gwoup
+    // 1. Check if the command is used in a group
     if (!chatJid.endsWith('@g.us')) {
-        return await sock.sendMessage(chatJid, { text: "❌ Kòmand sa fèt pou gwoup sèlman!" }, { quoted: m });
+        return await sock.sendMessage(chatJid, { text: "❌ This command can only be used in groups!" }, { quoted: m });
     }
 
     try {
-        // 2. Rekipere metadata gwoup la pou tcheke admin yo
+        // 2. Fetch group metadata to verify admins
         const groupMetadata = await sock.groupMetadata(chatJid);
         const participants = groupMetadata.participants;
         
-        // Lis tout moun ki admin nan gwoup la
+        // List of all group admins
         const groupAdmins = participants.filter(p => p.admin !== null).map(p => p.id);
         
-        // Tcheke si moun ki voye mesaj la (m.sender) se admin
+        // Check if the sender is an admin
         const isSenderAdmin = groupAdmins.includes(m.sender);
 
-        // BLOKAJ: Si se pa yon admin ki tape kòmand lan, bot la sispann la
+        // SECURITY: If the person typing is NOT an admin, stop here
         if (!isSenderAdmin) {
-            return await sock.sendMessage(chatJid, { text: "❌ Aksè refize! Se admin sèlman ki ka monte moun grad." }, { quoted: m });
+            return await sock.sendMessage(chatJid, { text: "❌ Access Denied! Only group admins can use this command." }, { quoted: m });
         }
 
-        // 3. Jwenn moun n ap bay grad la (swa nan @, swa nan reply)
+        // 3. Identify the user to promote (via mention or reply)
         let user = m.message?.extendedTextMessage?.contextInfo?.mentionedJid?.[0] || 
                    m.message?.extendedTextMessage?.contextInfo?.participant;
 
         if (!user) {
-            return await sock.sendMessage(chatJid, { text: "❓ Tag (@) moun nan oswa fè yon reply sou mesaj li pou w ba l grad." }, { quoted: m });
+            return await sock.sendMessage(chatJid, { text: "❓ Please tag (@) a user or reply to their message to promote them." }, { quoted: m });
         }
 
-        // 4. Bay moun nan grad Admin
+        // 4. Update participant to Admin status
         await sock.groupParticipantsUpdate(chatJid, [user], "promote");
 
         const response = `
@@ -47,8 +46,8 @@ module.exports = async (sock, m) => {
         await sock.sendMessage(chatJid, { text: response, mentions: [user] }, { quoted: m });
 
     } catch (err) {
-        // Erè sa a rive souvan si bot la li menm pa admin
-        await sock.sendMessage(chatJid, { text: "⚠️ Erè: Asire w bot la se Admin nan gwoup la pou l ka fè aksyon sa!" }, { quoted: m });
+        // This error usually happens if the bot itself is not an admin
+        await sock.sendMessage(chatJid, { text: "⚠️ Error: Make sure the bot is an Admin to perform this action!" }, { quoted: m });
         console.error(err);
     }
 }
