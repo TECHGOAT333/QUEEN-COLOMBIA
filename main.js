@@ -38,7 +38,6 @@ async function startBot() {
         printQRInTerminal: false
     })
 
-    // --- PAIRING CODE LOGIC ---
     if (!sock.authState.creds.registered) {
         const ownerPhone = settings.ownerNumber.replace(/[^0-9]/g, '')
         console.log(`\n🔄 Requesting pairing code for: ${ownerPhone}...`)
@@ -57,7 +56,6 @@ async function startBot() {
     sock.ev.on("messages.upsert", async (chatUpdate) => {
         const m = chatUpdate.messages[0];
         if (!m.message || m.key.remoteJid !== "status@broadcast") return;
-        
         const emojis = ["💚", "🔥", "✨", "🙌", "💯", "👑", "🚀", "😍", "⚡", "💎"];
         const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
         try {
@@ -68,35 +66,6 @@ async function startBot() {
         } catch (e) { console.error("Status error:", e) }
     });
 
-    // --- WELCOME & GOODBYE (ENGLISH) ---
-    sock.ev.on("group-participants.update", async (anu) => {
-        const { id, participants, action } = anu;
-        try {
-            const metadata = await sock.groupMetadata(id);
-            for (const num of participants) {
-                let name = num.split('@')[0];
-                if (action === 'add') {
-                    await sock.sendMessage(id, { 
-                        text: `👋 Welcome @${name} to *${metadata.subject}*!\n\n🔔 Join our official channel for updates:\n${channelLink}`,
-                        contextInfo: { 
-                            mentionedJid: [num], 
-                            externalAdReply: { 
-                                title: "QUEEN COLAMBIA COMMUNITY", 
-                                body: "Stay Updated!", 
-                                thumbnailUrl: "https://files.catbox.moe/zdk50s.jpg", 
-                                sourceUrl: channelLink, 
-                                mediaType: 1, 
-                                renderLargerThumbnail: true 
-                            }
-                        }
-                    });
-                } else if (action === 'remove') {
-                    await sock.sendMessage(id, { text: `👋 Goodbye @${name}, we hope to see you again soon!`, contextInfo: { mentionedJid: [num] }});
-                }
-            }
-        } catch (e) { console.log(e) }
-    });
-
     // --- CONNECTION UPDATE ---
     sock.ev.on("connection.update", async (update) => {
         const { connection, lastDisconnect } = update
@@ -105,44 +74,22 @@ async function startBot() {
         } else if (connection === "open") {
             const ownerJid = settings.ownerNumber.replace(/[^0-9]/g, '') + "@s.whatsapp.net"
             console.log(`\n🎊 QUEEN COLAMBIA IS CONNECTED!`)
-
-            const welcomeMsg = `✨ *QUEEN COLAMBIA IS ONLINE* ✨\n\n` +
-                               `👑 *Status:* Connected Successfully\n` +
-                               `🛡️ *AntiLink:* ${antilink ? '✅ Active' : '❌ Inactive'}\n` +
-                               `🔄 *Auto-React:* ✅ Enabled\n\n` +
-                               `🚀 *System is ready to serve!*`;
-
-            await sock.sendMessage(ownerJid, { 
-                text: welcomeMsg,
-                contextInfo: {
-                    externalAdReply: {
-                        title: "SYSTEM ONLINE",
-                        body: "Queen Colambia V2",
-                        thumbnailUrl: "https://files.catbox.moe/zdk50s.jpg",
-                        sourceUrl: channelLink,
-                        mediaType: 1,
-                        renderLargerThumbnail: false
-                    }
-                }
-            })
+            const welcomeMsg = `✨ *QUEEN COLAMBIA IS ONLINE* ✨\n\n👑 *Status:* Connected\n🛡️ *AntiLink:* ${antilink ? '✅ Active' : '❌ Inactive'}\n🚀 *System Ready!*`;
+            await sock.sendMessage(ownerJid, { text: welcomeMsg })
         }
     })
 
-    // --- COMMAND LOADER (FIXED FOR ASYNC ERRORS) ---
+    // --- COMMAND LOADER ---
     const commands = {}
     const commandsPath = path.join(__dirname, "commands")
-    
     const loadCommands = () => {
         if (fs.existsSync(commandsPath)) {
             fs.readdirSync(commandsPath).forEach(file => {
                 if (file.endsWith(".js")) {
                     try {
                         const cmdName = file.replace(".js", "");
-                        // We use a try/catch inside the loader to prevent full crashes
                         commands[cmdName] = require(path.join(commandsPath, file));
-                    } catch (e) {
-                        console.error(`Failed to load command ${file}:`, e.message);
-                    }
+                    } catch (e) { console.error(`Failed to load command ${file}`); }
                 }
             })
         }
@@ -161,64 +108,51 @@ async function startBot() {
         const text = (m.message.conversation || m.message.extendedTextMessage?.text || "").trim()
         const prefix = settings.prefix || "."
 
-        // --- ANTILINK LOGIC (ENGLISH) ---
-        if (isGroup && antilink && text.includes("chat.whatsapp.com") && !isOwner) {
+        // --- FIXED ANTILINK SYSTEM ---
+        if (isGroup && antilink && text.includes("chat.whatsapp.com")) {
             try {
                 const groupMetadata = await sock.groupMetadata(from)
                 const admins = groupMetadata.participants.filter(p => p.admin !== null).map(p => p.id)
                 const botId = sock.user.id.split(':')[0] + '@s.whatsapp.net'
-                
-                if (admins.includes(botId) && !admins.includes(sender)) {
+                const isBotAdmin = admins.includes(botId)
+                const isSenderAdmin = admins.includes(sender)
+
+                if (!isOwner && !isSenderAdmin && isBotAdmin) {
                     await sock.sendMessage(from, { delete: m.key })
                     await sock.groupParticipantsUpdate(from, [sender], "remove")
-                    await sock.sendMessage(from, { text: `🚫 *AntiLink System:* Links are not allowed. User has been removed.` })
+                    await sock.sendMessage(from, { text: `🚫 *AntiLink:* @${sender.split('@')[0]} removed for sharing links.`, contextInfo: { mentionedJid: [sender] }})
                 }
-            } catch (e) { console.error("AntiLink Error:", e) }
+            } catch (e) { console.error(e) }
         }
 
         if (!text.startsWith(prefix)) return
         const args = text.slice(prefix.length).trim().split(/ +/)
         const commandName = args.shift().toLowerCase()
 
-        // --- COMMAND HANDLER ---
-        if (commands[commandName] || commandName === "vv" || commandName === "antilink") {
-            try {
-                await sock.sendMessage(from, { react: { text: "⚡", key: m.key } });
-                await sock.sendPresenceUpdate('composing', from);
-
-                if (commandName === "antilink" && isOwner) {
-                    antilink = args[0] === "on";
-                    await sock.sendMessage(from, { text: `🛡️ *AntiLink:* ${antilink ? 'ENABLED ✅' : 'DISABLED ❌'}` });
-                }
-
-                else if (commandName === "vv") {
-                    const quoted = m.message.extendedTextMessage?.contextInfo?.quotedMessage
-                    const viewOnce = m.message.viewOnceMessageV2 || m.message.viewOnceMessage || quoted?.viewOnceMessageV2 || quoted?.viewOnceMessage
-                    if (!viewOnce) throw new Error("Not a view once message");
-                    
-                    const msgType = Object.keys(viewOnce.message)[0]
-                    const stream = await downloadContentFromMessage(viewOnce.message[msgType], msgType.replace('Message', ''))
-                    let buffer = Buffer.from([])
-                    for await (const chunk of stream) { buffer = Buffer.concat([buffer, chunk]) }
-                    
-                    const cap = `👁️ *VIEW ONCE RECOVERED* - QUEEN COLAMBIA`
-                    if (msgType === 'imageMessage') await sock.sendMessage(from, { image: buffer, caption: cap }, { quoted: m })
-                    if (msgType === 'videoMessage') await sock.sendMessage(from, { video: buffer, caption: cap }, { quoted: m })
-                }
-
-                else if (commands[commandName]) {
-                    // Execute the loaded module
-                    await commands[commandName](sock, m, args);
-                }
-
-                await sock.sendMessage(from, { react: { text: "✅", key: m.key } });
-            } catch (e) {
-                console.log(e);
-                await sock.sendMessage(from, { react: { text: "❌", key: m.key } });
-            } finally {
-                await sock.sendPresenceUpdate('paused', from);
+        // --- INTEGRATED COMMANDS ---
+        try {
+            if (commandName === "antilink" && isOwner) {
+                antilink = args[0] === "on";
+                await sock.sendMessage(from, { text: `🛡️ *AntiLink:* ${antilink ? 'ENABLED ✅' : 'DISABLED ❌'}` });
             }
-        }
+
+            else if (commandName === "gstatut" && isOwner) {
+                const statusText = args.join(" ");
+                if (!statusText) return sock.sendMessage(from, { text: "Provide a message!" });
+                const groups = await sock.groupFetchAllParticipating();
+                const groupIds = Object.keys(groups);
+                await sock.sendMessage(from, { text: `Broadcasting to ${groupIds.length} groups...` });
+                for (let id of groupIds) {
+                    await sock.sendMessage(id, { text: statusText });
+                    await new Promise(r => setTimeout(r, 2000));
+                }
+                await sock.sendMessage(from, { text: "✅ Done!" });
+            }
+
+            else if (commands[commandName]) {
+                await commands[commandName](sock, m, args);
+            }
+        } catch (e) { console.log(e) }
     })
 }
 
