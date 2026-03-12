@@ -23,8 +23,7 @@ const startServer = (port) => {
 };
 startServer(process.env.PORT || 3000);
 
-let antilink = true; 
-const channelLink = "https://whatsapp.com/channel/0029Vb2J9C91dAw7vxA75y2V";
+const dbPath = path.join(__dirname, "database.json");
 
 async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState("session")
@@ -74,8 +73,7 @@ async function startBot() {
         } else if (connection === "open") {
             const ownerJid = settings.ownerNumber.replace(/[^0-9]/g, '') + "@s.whatsapp.net"
             console.log(`\n🎊 QUEEN COLAMBIA IS CONNECTED!`)
-            const welcomeMsg = `✨ *QUEEN COLAMBIA IS ONLINE* ✨\n\n👑 *Status:* Connected\n🛡️ *AntiLink:* ${antilink ? '✅ Active' : '❌ Inactive'}\n🚀 *System Ready!*`;
-            await sock.sendMessage(ownerJid, { text: welcomeMsg })
+            await sock.sendMessage(ownerJid, { text: "✨ *QUEEN COLAMBIA IS ONLINE* ✨" })
         }
     })
 
@@ -104,51 +102,71 @@ async function startBot() {
         const from = m.key.remoteJid
         const isGroup = from.endsWith('@g.us')
         const sender = m.key.participant || m.key.remoteJid
-        const isOwner = sender.includes(settings.ownerNumber.replace(/[^0-9]/g, '')) || m.key.fromMe
         const text = (m.message.conversation || m.message.extendedTextMessage?.text || "").trim()
         const prefix = settings.prefix || "."
+        const isOwner = sender.includes(settings.ownerNumber.replace(/[^0-9]/g, '')) || m.key.fromMe
 
-        // --- FIXED ANTILINK SYSTEM ---
-        if (isGroup && antilink && text.includes("chat.whatsapp.com")) {
-            try {
-                const groupMetadata = await sock.groupMetadata(from)
-                const admins = groupMetadata.participants.filter(p => p.admin !== null).map(p => p.id)
-                const botId = sock.user.id.split(':')[0] + '@s.whatsapp.net'
-                const isBotAdmin = admins.includes(botId)
-                const isSenderAdmin = admins.includes(sender)
+        // --- PERSISTENT ANTILINK SYSTEM ---
+        if (isGroup && text) {
+            let db = { antilink: [] };
+            if (fs.existsSync(dbPath)) {
+                try { db = JSON.parse(fs.readFileSync(dbPath, "utf-8")); } catch (e) { db = { antilink: [] }; }
+            }
 
-                if (!isOwner && !isSenderAdmin && isBotAdmin) {
-                    await sock.sendMessage(from, { delete: m.key })
-                    await sock.groupParticipantsUpdate(from, [sender], "remove")
-                    await sock.sendMessage(from, { text: `🚫 *AntiLink:* @${sender.split('@')[0]} removed for sharing links.`, contextInfo: { mentionedJid: [sender] }})
+            // Si se nan gwoup sa a ou te limen AntiLink la
+            if (db.antilink.includes(from)) {
+                const linkRegex = /chat.whatsapp.com\/|https?:\/\//gi;
+                if (linkRegex.test(text)) {
+                    try {
+                        const groupMetadata = await sock.groupMetadata(from)
+                        const admins = groupMetadata.participants.filter(p => p.admin !== null).map(p => p.id)
+                        const botId = sock.user.id.split(':')[0] + '@s.whatsapp.net'
+                        const isBotAdmin = admins.includes(botId)
+                        const isSenderAdmin = admins.includes(sender)
+
+                        // Sèlman si se pa yon admin/owner ki voye l epi bot la se admin
+                        if (!isSenderAdmin && !isOwner && isBotAdmin) {
+                            await sock.sendMessage(from, { delete: m.key })
+                            await sock.sendMessage(from, { 
+                                text: `🚫 *Link Detected:* @${sender.split('@')[0]}, links are strictly forbidden here!`, 
+                                mentions: [sender] 
+                            })
+                        }
+                    } catch (e) { console.error("AntiLink Error:", e) }
                 }
-            } catch (e) { console.error(e) }
+            }
         }
 
         if (!text.startsWith(prefix)) return
         const args = text.slice(prefix.length).trim().split(/ +/)
         const commandName = args.shift().toLowerCase()
 
-        // --- INTEGRATED COMMANDS ---
         try {
-            if (commandName === "antilink" && isOwner) {
-                antilink = args[0] === "on";
-                await sock.sendMessage(from, { text: `🛡️ *AntiLink:* ${antilink ? 'ENABLED ✅' : 'DISABLED ❌'}` });
-            }
+            // --- COMMAND: ANTILINK (OWNER ONLY) ---
+            if (commandName === "antilink") {
+                if (!isOwner) return await sock.sendMessage(from, { text: "❌ *Access Denied:* Only the Bot Owner can enable/disable AntiLink." });
 
-            else if (commandName === "gstatut" && isOwner) {
-                const statusText = args.join(" ");
-                if (!statusText) return sock.sendMessage(from, { text: "Provide a message!" });
-                const groups = await sock.groupFetchAllParticipating();
-                const groupIds = Object.keys(groups);
-                await sock.sendMessage(from, { text: `Broadcasting to ${groupIds.length} groups...` });
-                for (let id of groupIds) {
-                    await sock.sendMessage(id, { text: statusText });
-                    await new Promise(r => setTimeout(r, 2000));
+                let db = { antilink: [] };
+                if (fs.existsSync(dbPath)) {
+                    try { db = JSON.parse(fs.readFileSync(dbPath, "utf-8")); } catch (e) { db = { antilink: [] }; }
                 }
-                await sock.sendMessage(from, { text: "✅ Done!" });
-            }
 
+                if (args[0] === "on") {
+                    if (!db.antilink.includes(from)) {
+                        db.antilink.push(from);
+                        fs.writeFileSync(dbPath, JSON.stringify(db, null, 2));
+                    }
+                    await sock.sendMessage(from, { text: "🛡️ *AntiLink:* Activated for this group! ✅" });
+                } else if (args[0] === "off") {
+                    db.antilink = db.antilink.filter(id => id !== from);
+                    fs.writeFileSync(dbPath, JSON.stringify(db, null, 2));
+                    await sock.sendMessage(from, { text: "🛡️ *AntiLink:* Deactivated for this group! ❌" });
+                } else {
+                    await sock.sendMessage(from, { text: `Usage: ${prefix}antilink on/off` });
+                }
+            }
+            
+            // --- OTHER COMMANDS ---
             else if (commands[commandName]) {
                 await commands[commandName](sock, m, args);
             }
