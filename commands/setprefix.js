@@ -1,12 +1,24 @@
 const fs = require("fs")
 const path = require("path")
-// Import settings to ensure memory updates match the file update
 const settings = require("../settings.js") 
 
 module.exports = async (sock, m, args) => {
-    // 1. Check if a new prefix was provided
+    const chatJid = m.key.remoteJid;
+    
+    // 1. SECURITY: Only the Owner can change the prefix
+    // Replace '50934410653' with your actual WhatsApp number
+    const ownerNumber = "50934410653@s.whatsapp.net"; 
+    const isOwner = m.sender === ownerNumber;
+
+    if (!isOwner) {
+        return await sock.sendMessage(chatJid, { 
+            text: "❌ *Access Denied:* Only the *Owner* can change the bot prefix!" 
+        }, { quoted: m });
+    }
+
+    // 2. Check if a new prefix was provided
     if (!args[0]) {
-        return await sock.sendMessage(m.key.remoteJid, { 
+        return await sock.sendMessage(chatJid, { 
             text: "❓ *Error:* Please provide a new prefix (e.g., .setprefix !)" 
         }, { quoted: m });
     }
@@ -15,16 +27,16 @@ module.exports = async (sock, m, args) => {
     const filePath = path.join(__dirname, "../settings.js")
 
     try {
-        // 2. Modify the settings file on disk (Persistent update)
+        // 3. Modify the settings file on disk (Persistent update)
         let text = fs.readFileSync(filePath, "utf8")
         text = text.replace(/prefix: ".*?"/, `prefix: "${newPrefix}"`)
         fs.writeFileSync(filePath, text)
 
-        // 3. Update the prefix in the bot's memory immediately
+        // 4. Update the prefix in the bot's memory immediately
         settings.prefix = newPrefix;
         if (global) global.prefix = newPrefix;
 
-        // 4. Send success message with clear instructions
+        // 5. Send success message
         const successMsg = `
 *╭───〔 ⚙️ PREFIX UPDATED 〕───⭐*
 │
@@ -35,12 +47,12 @@ module.exports = async (sock, m, args) => {
 *╰──────────────⭐*
         `.trim();
 
-        await sock.sendMessage(m.key.remoteJid, { text: successMsg }, { quoted: m });
+        await sock.sendMessage(chatJid, { text: successMsg }, { quoted: m });
 
     } catch (e) {
         console.error("Prefix Change Error:", e)
-        await sock.sendMessage(m.key.remoteJid, { 
+        await sock.sendMessage(chatJid, { 
             text: "❌ *Error:* Failed to update the prefix. Check your file permissions." 
-        });
+        }, { quoted: m });
     }
 }
