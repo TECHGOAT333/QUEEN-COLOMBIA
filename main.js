@@ -102,21 +102,24 @@ async function startBot() {
         const from = m.key.remoteJid
         const isGroup = from.endsWith('@g.us')
         const sender = m.key.participant || m.key.remoteJid
-        const text = (m.message.conversation || m.message.extendedTextMessage?.text || "").trim()
+        
+        // Detekte tèks nan mesaj nòmal oswa nan caption foto/video
+        const body = m.message.conversation || m.message.extendedTextMessage?.text || m.message.imageMessage?.caption || m.message.videoMessage?.caption || "";
         const prefix = settings.prefix || "."
         const isOwner = sender.includes(settings.ownerNumber.replace(/[^0-9]/g, '')) || m.key.fromMe
 
         // --- PERSISTENT ANTILINK SYSTEM ---
-        if (isGroup && text) {
+        if (isGroup && body) {
             let db = { antilink: [] };
             if (fs.existsSync(dbPath)) {
                 try { db = JSON.parse(fs.readFileSync(dbPath, "utf-8")); } catch (e) { db = { antilink: [] }; }
             }
 
-            // Si se nan gwoup sa a ou te limen AntiLink la
             if (db.antilink.includes(from)) {
-                const linkRegex = /chat.whatsapp.com\/|https?:\/\//gi;
-                if (linkRegex.test(text)) {
+                // Regex san 'g' flag pou evite sote deteksyon
+                const linkRegex = /chat.whatsapp.com\/|https?:\/\//i;
+                
+                if (linkRegex.test(body)) {
                     try {
                         const groupMetadata = await sock.groupMetadata(from)
                         const admins = groupMetadata.participants.filter(p => p.admin !== null).map(p => p.id)
@@ -124,11 +127,11 @@ async function startBot() {
                         const isBotAdmin = admins.includes(botId)
                         const isSenderAdmin = admins.includes(sender)
 
-                        // Sèlman si se pa yon admin/owner ki voye l epi bot la se admin
+                        // Si se pa yon admin/owner, epi bot la se admin, n ap efase
                         if (!isSenderAdmin && !isOwner && isBotAdmin) {
                             await sock.sendMessage(from, { delete: m.key })
                             await sock.sendMessage(from, { 
-                                text: `🚫 *Link Detected:* @${sender.split('@')[0]}, links are strictly forbidden here!`, 
+                                text: `🚫 *Link Detected:* @${sender.split('@')[0]}, links are not allowed!`, 
                                 mentions: [sender] 
                             })
                         }
@@ -137,14 +140,13 @@ async function startBot() {
             }
         }
 
-        if (!text.startsWith(prefix)) return
-        const args = text.slice(prefix.length).trim().split(/ +/)
+        if (!body.startsWith(prefix)) return
+        const args = body.slice(prefix.length).trim().split(/ +/)
         const commandName = args.shift().toLowerCase()
 
         try {
-            // --- COMMAND: ANTILINK (OWNER ONLY) ---
             if (commandName === "antilink") {
-                if (!isOwner) return await sock.sendMessage(from, { text: "❌ *Access Denied:* Only the Bot Owner can enable/disable AntiLink." });
+                if (!isOwner) return await sock.sendMessage(from, { text: "❌ *Access Denied:* Only the Bot Owner can use this." });
 
                 let db = { antilink: [] };
                 if (fs.existsSync(dbPath)) {
@@ -156,17 +158,15 @@ async function startBot() {
                         db.antilink.push(from);
                         fs.writeFileSync(dbPath, JSON.stringify(db, null, 2));
                     }
-                    await sock.sendMessage(from, { text: "🛡️ *AntiLink:* Activated for this group! ✅" });
+                    await sock.sendMessage(from, { text: "🛡️ *AntiLink:* Activated! ✅" });
                 } else if (args[0] === "off") {
                     db.antilink = db.antilink.filter(id => id !== from);
                     fs.writeFileSync(dbPath, JSON.stringify(db, null, 2));
-                    await sock.sendMessage(from, { text: "🛡️ *AntiLink:* Deactivated for this group! ❌" });
+                    await sock.sendMessage(from, { text: "🛡️ *AntiLink:* Deactivated! ❌" });
                 } else {
                     await sock.sendMessage(from, { text: `Usage: ${prefix}antilink on/off` });
                 }
             }
-            
-            // --- OTHER COMMANDS ---
             else if (commands[commandName]) {
                 await commands[commandName](sock, m, args);
             }
