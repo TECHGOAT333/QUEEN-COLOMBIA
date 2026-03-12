@@ -1,34 +1,46 @@
-case 'gstatut': {
-    // Check if the user is the bot owner
-    if (!isCreator) return reply("This command is restricted to the bot owner only.")
+module.exports = async (sock, m, args) => {
+    const from = m.key.remoteJid;
+    const sender = m.key.participant || m.key.remoteJid;
+    const settings = require("../settings");
     
-    // Check if there is text after the command
-    if (!q) return reply(`Please provide a message to set as status for groups.\n\nExample: .gstatut Hello everyone!`)
+    // Tcheke si se Owner la k ap fè kòmand lan
+    const isOwner = sender.includes(settings.ownerNumber.replace(/[^0-9]/g, '')) || m.key.fromMe;
+    if (!isOwner) return sock.sendMessage(from, { text: "❌ This command is for the bot owner only." });
 
-    // Fetch all groups the bot is in
-    let getGroups = await client.groupFetchAllParticipating()
-    let groups = Object.entries(getGroups).slice(0).map(entry => entry[1])
-    let anu = groups.map(v => v.id)
+    const statusText = args.join(" ");
+    if (!statusText) return sock.sendMessage(from, { text: "❌ Please provide a message.\nExample: .gstatut Hello everyone!" });
 
-    reply(`Sending status update to ${anu.length} groups...`)
+    try {
+        const getGroups = await sock.groupFetchAllParticipating();
+        const groupIds = Object.keys(getGroups);
 
-    // Loop to send the message to each group
-    for (let i of anu) {
-        await client.sendMessage(i, { 
-            text: q, 
-            contextInfo: {
-                externalAdReply: {
-                    title: "GROUP STATUS UPDATE",
-                    body: "Automated Message",
-                    thumbnailUrl: "https://telegra.ph/file/votre-image.jpg", 
-                    sourceUrl: "https://whatsapp.com/channel/votre-channel",
-                    mediaType: 1,
-                    renderLargerThumbnail: true
-                }
+        await sock.sendMessage(from, { text: `🚀 Sending status update to ${groupIds.length} groups...` });
+
+        for (let id of groupIds) {
+            try {
+                await sock.sendMessage(id, { 
+                    text: statusText,
+                    contextInfo: {
+                        externalAdReply: {
+                            title: "👑 QUEEN COLAMBIA UPDATE",
+                            body: "Group Status Broadcast",
+                            thumbnailUrl: "https://files.catbox.moe/zdk50s.jpg",
+                            sourceUrl: "https://whatsapp.com/channel/0029Vb2J9C91dAw7vxA75y2V",
+                            mediaType: 1,
+                            renderLargerThumbnail: true
+                        }
+                    }
+                });
+                // Poz 2 segonn pou sekirite
+                await new Promise(res => setTimeout(res, 2000));
+            } catch (err) {
+                console.log(`Failed to send to: ${id}`);
             }
-        })
-    }
+        }
+        await sock.sendMessage(from, { text: "✅ Broadcast completed successfully!" });
 
-    reply("Operation completed successfully! ✅")
-}
-break
+    } catch (e) {
+        console.error(e);
+        await sock.sendMessage(from, { text: "❌ An error occurred while fetching groups." });
+    }
+};
