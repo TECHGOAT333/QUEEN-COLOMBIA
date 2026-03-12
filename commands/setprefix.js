@@ -5,14 +5,14 @@ const settings = require("../settings.js")
 module.exports = async (sock, m, args) => {
     const chatJid = m.key.remoteJid;
     
-    // 1. SECURITY: Only the Owner can change the prefix
-    // Replace '50934410653' with your actual WhatsApp number
-    const ownerNumber = "50934410653@s.whatsapp.net"; 
-    const isOwner = m.sender === ownerNumber;
+    // 1. DYNAMIC SECURITY: Check if the sender is the Owner from settings.js
+    // We clean the numbers to make sure they match correctly
+    const ownerNum = settings.ownerNumber.replace(/[^0-9]/g, '') + "@s.whatsapp.net";
+    const isOwner = m.sender === ownerNum;
 
     if (!isOwner) {
         return await sock.sendMessage(chatJid, { 
-            text: "❌ *Access Denied:* Only the *Owner* can change the bot prefix!" 
+            text: "❌ *Access Denied:* Only the *Bot Owner* can change the prefix!" 
         }, { quoted: m });
     }
 
@@ -29,7 +29,8 @@ module.exports = async (sock, m, args) => {
     try {
         // 3. Modify the settings file on disk (Persistent update)
         let text = fs.readFileSync(filePath, "utf8")
-        text = text.replace(/prefix: ".*?"/, `prefix: "${newPrefix}"`)
+        // This regex looks for prefix: "any_symbol" and replaces it
+        text = text.replace(/prefix:\s*".*?"/, `prefix: "${newPrefix}"`)
         fs.writeFileSync(filePath, text)
 
         // 4. Update the prefix in the bot's memory immediately
