@@ -1,17 +1,17 @@
-import fs from 'fs';
-import path from 'path';
+const fs = require("fs");
+const path = require("path");
 
-// Nou itilize database.json ki nan imaj la pou n sove konfigirasyon yo
-const dbPath = path.resolve('./database.json');
+// Chemen pou database.json la (menm jan ak nan main.js)
+const dbPath = path.join(__dirname, "..", "database.json");
 
 function getDatabase() {
     if (!fs.existsSync(dbPath)) {
-        fs.writeFileSync(dbPath, JSON.stringify({ users: {} }, null, 2));
+        fs.writeFileSync(dbPath, JSON.stringify({ users: {}, antilink: [] }, null, 2));
     }
     try {
         return JSON.parse(fs.readFileSync(dbPath, 'utf-8'));
     } catch (e) {
-        return { users: {} };
+        return { users: {}, antilink: [] };
     }
 }
 
@@ -24,11 +24,21 @@ function isEmoji(text) {
     return emojiRegex.test(text);
 }
 
-export async function handleSettingsCommand(msg, client, command, args) {
-    const userId = client.user.id.split(':')[0];
-    const jid = msg.key.remoteJid;
-    const senderId = msg.key.participant ? msg.key.participant.split(':')[0] : jid.split(':')[0];
-    const isOwner = msg.key.fromMe || jid.split(':')[0] === senderId;
+// Sa a se fonksyon prensipal kòmand loader a ap rele
+module.exports = async function (sock, m, args) {
+    const body = m.message.conversation || m.message.extendedTextMessage?.text || m.message.imageMessage?.caption || m.message.videoMessage?.caption || "";
+    const prefix = require("../settings").prefix || "."; // Li prefix la nan settings.js deyò a
+    
+    // Detekte kòmand lan nan kòd la
+    const command = body.slice(prefix.length).trim().split(/ +/).shift().toLowerCase();
+
+    const userId = sock.user.id.split(':')[0];
+    const jid = m.key.remoteJid;
+    const senderId = m.key.participant ? m.key.participant.split(':')[0] : jid.split(':')[0];
+    
+    // Tcheke si se Owner la nan settings yo
+    const settingsFile = require("../settings");
+    const isOwner = senderId.includes(settingsFile.ownerNumber.replace(/[^0-9]/g, '')) || m.key.fromMe;
 
     let db = getDatabase();
     if (!db.users) db.users = {};
@@ -39,7 +49,7 @@ export async function handleSettingsCommand(msg, client, command, args) {
             const prefixArg = args[0] || '';
             db.users[userId].prefix = prefixArg;
             saveDatabase(db);
-            await client.sendMessage(jid, { text: `✅ Prefix chanje avèk siksè: "${prefixArg}"` }, { quoted: msg });
+            await sock.sendMessage(jid, { text: `✅ Prefix chanje avèk siksè: "${prefixArg}"` }, { quoted: m });
             break;
         }
 
@@ -48,9 +58,9 @@ export async function handleSettingsCommand(msg, client, command, args) {
             if (emojiArg && isEmoji(emojiArg)) {
                 db.users[userId].reaction = emojiArg;
                 saveDatabase(db);
-                await client.sendMessage(jid, { text: `✅ Emoji reaksyon chanje: ${emojiArg}` }, { quoted: msg });
+                await sock.sendMessage(jid, { text: `✅ Emoji reaksyon chanje: ${emojiArg}` }, { quoted: m });
             } else {
-                await client.sendMessage(jid, { text: `❌ Tanpri mete yon emoji valab. Egzanp: .setreaction ❤️` }, { quoted: msg });
+                await sock.sendMessage(jid, { text: `❌ Tanpri mete yon emoji valab. Egzanp: ${prefix}setreaction ❤️` }, { quoted: m });
             }
             break;
         }
@@ -60,9 +70,9 @@ export async function handleSettingsCommand(msg, client, command, args) {
             if (status === 'on' || status === 'off') {
                 db.users[userId].welcome = (status === 'on');
                 saveDatabase(db);
-                await client.sendMessage(jid, { text: `✅ Mesaj Byenveni (Welcome) mete sou: ${status.toUpperCase()}` }, { quoted: msg });
+                await sock.sendMessage(jid, { text: `✅ Mesaj Byenveni (Welcome) mete sou: ${status.toUpperCase()}` }, { quoted: m });
             } else {
-                await client.sendMessage(jid, { text: `❌ Chwazi yon opsyon: .setwelcome on oswa off` }, { quoted: msg });
+                await sock.sendMessage(jid, { text: `❌ Chwazi yon opsyon: ${prefix}setwelcome on oswa off` }, { quoted: m });
             }
             break;
         }
@@ -72,9 +82,9 @@ export async function handleSettingsCommand(msg, client, command, args) {
             if (status === 'on' || status === 'off') {
                 db.users[userId].record = (status === 'on');
                 saveDatabase(db);
-                await client.sendMessage(jid, { text: `✅ Autorecord mete sou: ${status.toUpperCase()}` }, { quoted: msg });
+                await sock.sendMessage(jid, { text: `✅ Autorecord mete sou: ${status.toUpperCase()}` }, { quoted: m });
             } else {
-                await client.sendMessage(jid, { text: `❌ Chwazi yon opsyon: .setautorecord on oswa off` }, { quoted: msg });
+                await sock.sendMessage(jid, { text: `❌ Chwazi yon opsyon: ${prefix}setautorecord on oswa off` }, { quoted: m });
             }
             break;
         }
@@ -84,28 +94,28 @@ export async function handleSettingsCommand(msg, client, command, args) {
             if (status === 'on' || status === 'off') {
                 db.users[userId].type = (status === 'on');
                 saveDatabase(db);
-                await client.sendMessage(jid, { text: `✅ Autotype mete sou: ${status.toUpperCase()}` }, { quoted: msg });
+                await sock.sendMessage(jid, { text: `✅ Autotype mete sou: ${status.toUpperCase()}` }, { quoted: m });
             } else {
-                await client.sendMessage(jid, { text: `❌ Chwazi yon opsyon: .setautotype on oswa off` }, { quoted: msg });
+                await sock.sendMessage(jid, { text: `❌ Chwazi yon opsyon: ${prefix}setautotype on oswa off` }, { quoted: m });
             }
             break;
         }
 
         case 'public': {
-            if (!isOwner) return await client.sendMessage(jid, { text: `> *⚠️ Sèlman mèt bot la ki ka itilize kòmand sa a!*` }, { quoted: msg });
+            if (!isOwner) return await sock.sendMessage(jid, { text: `> *⚠️ Sèlman mèt bot la ki ka itilize kòmand sa a!*` }, { quoted: m });
             const status = args[0]?.toLowerCase();
             if (status === 'on') {
                 db.users[userId].publicMode = true;
                 saveDatabase(db);
-                await client.sendMessage(jid, { text: '✅ Mode public activé' }, { quoted: msg });
+                await sock.sendMessage(jid, { text: '✅ Mode public activé' }, { quoted: m });
             } else if (status === 'off') {
                 db.users[userId].publicMode = false;
                 saveDatabase(db);
-                await client.sendMessage(jid, { text: '🚫 Mode public désactivé' }, { quoted: msg });
+                await sock.sendMessage(jid, { text: '🚫 Mode public désactivé' }, { quoted: m });
             } else {
-                await client.sendMessage(jid, { text: '❌ Itilize: .public on oswa off' }, { msg });
+                await sock.sendMessage(jid, { text: `❌ Itilize: ${prefix}public on oswa off` }, { quoted: m });
             }
             break;
         }
     }
-}
+};
