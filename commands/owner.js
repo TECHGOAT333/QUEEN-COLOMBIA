@@ -1,6 +1,6 @@
 module.exports = async (sock, m) => {
     // WeedDev direct contact info
-    const ownerNumber = "50939032060"; 
+    const ownerNumber = "50942823248"; 
     const devName = "WeedDev"; 
 
     // 1. Create the VCard (Contact Card) format
