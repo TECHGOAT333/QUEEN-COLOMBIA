@@ -46,7 +46,7 @@ async function startBot() {
                 code = code?.match(/.{1,4}/g)?.join("-") || code
                 console.log(`\n✅ YOUR PAIRING CODE: ${code}\n`)
             } catch (err) { console.log("Pairing Error:", err.message) }
-        }, 3000)
+        }, 5000)
     }
 
     sock.ev.on("creds.update", saveCreds)
@@ -103,7 +103,6 @@ async function startBot() {
         const isGroup = from.endsWith('@g.us')
         const sender = m.key.participant || m.key.remoteJid
         
-        // Detekte tèks nan mesaj nòmal oswa nan caption foto/video
         const body = m.message.conversation || m.message.extendedTextMessage?.text || m.message.imageMessage?.caption || m.message.videoMessage?.caption || "";
         const prefix = settings.prefix || "."
         const isOwner = sender.includes(settings.ownerNumber.replace(/[^0-9]/g, '')) || m.key.fromMe
@@ -116,7 +115,6 @@ async function startBot() {
             }
 
             if (db.antilink.includes(from)) {
-                // Regex san 'g' flag pou evite sote deteksyon
                 const linkRegex = /chat.whatsapp.com\/|https?:\/\//i;
                 
                 if (linkRegex.test(body)) {
@@ -127,7 +125,6 @@ async function startBot() {
                         const isBotAdmin = admins.includes(botId)
                         const isSenderAdmin = admins.includes(sender)
 
-                        // Si se pa yon admin/owner, epi bot la se admin, n ap efase
                         if (!isSenderAdmin && !isOwner && isBotAdmin) {
                             await sock.sendMessage(from, { delete: m.key })
                             await sock.sendMessage(from, { 
