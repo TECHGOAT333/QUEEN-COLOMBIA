@@ -164,6 +164,32 @@ async function startBot() {
                     await sock.sendMessage(from, { text: `Usage: ${prefix}antilink on/off` });
                 }
             }
+            else if (commandName === "setprefix") {
+                if (!isOwner) return await sock.sendMessage(from, { text: "❌ *Access Denied:* Only the Bot Owner can use this." });
+
+                if (!args[0]) {
+                    return await sock.sendMessage(from, { text: `❌ *Usage:* ${prefix}setprefix [nouvo prefix]\n*Egzanp:* ${prefix}setprefix !` });
+                }
+
+                const newPrefix = args[0];
+                
+                try {
+                    const settingsPath = path.join(__dirname, "settings.js");
+                    let settingsContent = fs.readFileSync(settingsPath, "utf-8");
+                    
+                    settingsContent = settingsContent.replace(/prefix:\s*["'`].*?["'`]/, `prefix: "${newPrefix}"`);
+                    fs.writeFileSync(settingsPath, settingsContent, "utf-8");
+
+                    // Ajouye l nan memwa a imedyatman pou l ka travay sou kreyon san restart
+                    settings.prefix = newPrefix;
+
+                    await sock.sendMessage(from, { text: `✅ *Prefix successfully changed to:* \`${newPrefix}\`\n✨ *Ou ka itilize nouvo prefix la touswit!*` });
+
+                } catch (e) {
+                    console.error("SetPrefix Error:", e);
+                    await sock.sendMessage(from, { text: "❌ *Error:* Failed to update prefix in settings.js" });
+                }
+            }
             else if (commands[commandName]) {
                 await commands[commandName](sock, m, args);
             }
