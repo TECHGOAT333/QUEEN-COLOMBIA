@@ -1,9 +1,10 @@
+const settings = require("../settings");
+
 module.exports = async (sock, m) => {
     const sender = m.sender || m.key.participant || m.key.remoteJid || "";
     const pushName = sender.split('@')[0] || "User";
 
-    const text = m.body || "";
-    const prefix = text.charAt(0);
+    const prefix = settings.prefix || ".";
 
     function runtime(seconds) {
         seconds = Number(seconds);
@@ -29,52 +30,52 @@ module.exports = async (sock, m) => {
 
 \`『 ʙᴏᴛ ɪɴғᴏ 』\`
 ╭───────────────────⊷
-*┋ ⬡ ${prefix}ping*
-*┋ ⬡ ${prefix}alive*
-*┋ ⬡ ${prefix}menu*
-*┋ ⬡ ${prefix}owner*
-*┋ ⬡ ${prefix}runtime*
-*┋ ⬡ ${prefix}status*
-*┋ ⬡ ${prefix}system*
+*┋ ⬡ ping*
+*┋ ⬡ alive*
+*┋ ⬡ menu*
+*┋ ⬡ owner*
+*┋ ⬡ runtime*
+*┋ ⬡ status*
+*┋ ⬡ system*
 ╰───────────────────⊷
 
 \`『 ᴛᴏᴏʟs 』\`
 ╭───────────────────⊷
-*┋ ⬡ ${prefix}say*
-*┋ ⬡ ${prefix}time*
-*┋ ⬡ ${prefix}date*
-*┋ ⬡ ${prefix}jid*
-*┋ ⬡ ${prefix}restart*
-*┋ ⬡ ${prefix}search*
-*┋ ⬡ ${prefix}ytmp4*
-*┋ ⬡ ${prefix}ytmp3*
-*┋ ⬡ ${prefix}igdl*
-*┋ ⬡ ${prefix}twitter*
-*┋ ⬡ ${prefix}translate*
+*┋ ⬡ say*
+*┋ ⬡ time*
+*┋ ⬡ date*
+*┋ ⬡ jid*
+*┋ ⬡ restart*
+*┋ ⬡ search*
+*┋ ⬡ ytmp4*
+*┋ ⬡ ytmp3*
+*┋ ⬡ igdl*
+*┋ ⬡ twitter*
+*┋ ⬡ translate*
 ╰───────────────────⊷
 
 \`『 ɢʀᴏᴜᴘ 』\`
 ╭───────────────────⊷
-*┋ ⬡ ${prefix}kick*
-*┋ ⬡ ${prefix}add*
-*┋ ⬡ ${prefix}promote*
-*┋ ⬡ ${prefix}demote*
-*┋ ⬡ ${prefix}delete*
-*┋ ⬡ ${prefix}tagall*
-*┋ ⬡ ${prefix}open*
-*┋ ⬡ ${prefix}close*
-*┋ ⬡ ${prefix}link*
-*┋ ⬡ ${prefix}hidetag*
+*┋ ⬡ kick*
+*┋ ⬡ add*
+*┋ ⬡ promote*
+*┋ ⬡ demote*
+*┋ ⬡ delete*
+*┋ ⬡ tagall*
+*┋ ⬡ open*
+*┋ ⬡ close*
+*┋ ⬡ link*
+*┋ ⬡ hidetag*
 ╰───────────────────⊷
 
 \`『 sᴇᴛᴛɪɴɢs 』\`
 ╭───────────────────⊷
-*┋ ⬡ ${prefix}setprefix*
-*┋ ⬡ ${prefix}setpp*
-*┋ ⬡ ${prefix}help*
-*┋ ⬡ ${prefix}echo*
-*┋ ⬡ ${prefix}welcome*
-*┋ ⬡ ${prefix}goodbye*
+*┋ ⬡ setprefix*
+*┋ ⬡ setpp*
+*┋ ⬡ help*
+*┋ ⬡ echo*
+*┋ ⬡ welcome*
+*┋ ⬡ goodbye*
 ╰───────────────────⊷
 
 > *©️ ᴘᴏᴡᴇʀᴇᴅ ʙʏ WEED TECH*
